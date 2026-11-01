@@ -76,12 +76,13 @@ API_KEY=your_secret_key ./rust-sqlite-webui
 | --- | --- | --- |
 | API_KEY | `your-super-secure-key` | Authentication key for accessing the WebUI. |
 | DB_DIR | `db` (`/app/db` in Docker) | Directory used to discover and store SQLite database files. |
+| PORT | `3000` | Port on which the backend listens. Must be a valid `u16` port number. |
 | RUST_LOG | `rust_sqlite_webui=debug,tower_http=debug` | Logging level configuration. |
 | OPENAI_API_KEY | - | OpenAI API key (required for AI assistant). |
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API base URL. |
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI model name. |
 
-To use a different database directory in Docker, set `DB_DIR` and mount your volume at the same path, for example `-e DB_DIR=/data -v $(pwd)/data:/data`.
+To use a different database directory in Docker, set `DB_DIR` and mount your volume at the same path, for example `-e DB_DIR=/data -v $(pwd)/data:/data`. To use a different port, set `PORT` and publish the same container port, for example `-e PORT=8080 -p 8080:8080`.
 
 > **Tip**: For development, create a `.env` file in `backend/` directory to configure these variables.
 

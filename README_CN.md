@@ -62,12 +62,13 @@ services:
 | --- | --- | --- |
 | API_KEY | `your-super-secure-key` | 用于访问 WebUI 的认证密钥。|
 | DB_DIR | `db`（在 Docker 中为 `/app/db`） | 用于发现和存储 SQLite 数据库文件的目录。|
+| PORT | `3000` | 后端监听端口，必须是有效的 `u16` 端口号。|
 | RUST_LOG | `rust_sqlite_webui=debug,tower_http=debug` | 日志级别配置。|
 | OPENAI_API_KEY | - | OpenAI API 密钥（AI 辅助功能必需）。|
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API 地址。|
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI 模型名称。|
 
-要在 Docker 中使用其他数据库目录，请设置 `DB_DIR` 并将数据卷挂载到相同路径，例如 `-e DB_DIR=/data -v $(pwd)/data:/data`。
+要在 Docker 中使用其他数据库目录，请设置 `DB_DIR` 并将数据卷挂载到相同路径，例如 `-e DB_DIR=/data -v $(pwd)/data:/data`。要使用其他端口，请设置 `PORT` 并发布相同的容器端口，例如 `-e PORT=8080 -p 8080:8080`。
 
 > **提示**: 开发环境下可在 `backend/` 目录创建 `.env` 文件配置上述变量。
 
