@@ -1,6 +1,6 @@
 import { Component, createSignal, onMount, For, Show } from "solid-js";
 import ThemeSwitch from "./ThemeSwitch";
-import { fetchTables, resetStore, apiKey, setIsAuthModalOpen } from "../lib/store";
+import { fetchTables, resetStore, apiKey, setIsAuthModalOpen, logoutUser } from "../lib/store";
 import { getDbFiles, connectDb, getHealth } from "../lib/api";
 import Icon from "./Icon";
 
@@ -225,8 +225,16 @@ const Navbar: Component = () => {
           </div>
         </Show>
       </div>
-      <div class="navbar-end w-auto">
+      <div class="navbar-end w-auto flex items-center gap-1">
         <ThemeSwitch />
+        <button
+          class="btn btn-ghost btn-circle"
+          onClick={logoutUser}
+          title="Log out"
+          aria-label="Log out"
+        >
+          <Icon name="logout" />
+        </button>
       </div>
     </header>
   );

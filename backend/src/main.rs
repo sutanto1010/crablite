@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    extract::Request,
+    extract::{Request, State},
     http::{HeaderMap, StatusCode},
     middleware::{self, Next},
     response::Response,
@@ -18,22 +18,36 @@ mod handlers;
 mod state;
 
 use handlers::{
-    connect_db, correct_sql, execute_query, get_database_schema, get_sqlite_internals,
-    get_table_schema, health_check, list_dbs, list_tables,
+    connect_db, correct_sql, execute_query, get_auth_config, get_database_schema,
+    get_sqlite_internals, get_table_schema, health_check, list_dbs, list_tables, login, logout,
+    verify_session_cookie,
 };
 use state::AppState;
 
 async fn auth_middleware(
+    State(state): State<AppState>,
     headers: HeaderMap,
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let api_key = std::env::var("API_KEY").unwrap_or_else(|_| "your-super-secure-key".to_string());
-
-    match headers.get("x-api-key") {
-        Some(key) if key == api_key.as_str() => Ok(next.run(request).await),
-        _ => Err(StatusCode::UNAUTHORIZED),
+    // 1. Check signed session cookie
+    if let Some(cookie_header) = headers
+        .get(axum::http::header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+    {
+        if verify_session_cookie(cookie_header, &state.session_secret) {
+            return Ok(next.run(request).await);
+        }
     }
+
+    // 2. Fall back to x-api-key header for direct API calls / CLI
+    if let Some(key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
+        if key == state.api_key {
+            return Ok(next.run(request).await);
+        }
+    }
+
+    Err(StatusCode::UNAUTHORIZED)
 }
 
 #[tokio::main]
@@ -51,14 +65,52 @@ async fn main() {
     let db_dir = std::env::var_os("DB_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("db"));
+
+    let api_key =
+        std::env::var("API_KEY").unwrap_or_else(|_| "your-super-secure-key".to_string());
+    let turnstile_secret_key = std::env::var("TURNSTILE_SECRET_KEY")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let turnstile_site_key = std::env::var("TURNSTILE_SITE_KEY")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let session_secret = std::env::var("SESSION_SECRET")
+        .map(|s| s.into_bytes())
+        .unwrap_or_else(|_| {
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(api_key.as_bytes());
+            hasher.update(b"crablite-session-salt");
+            hasher.finalize().to_vec()
+        });
+
+    if turnstile_secret_key.is_some() && turnstile_site_key.is_some() {
+        tracing::info!("Cloudflare Turnstile enabled");
+    } else {
+        tracing::info!("Cloudflare Turnstile disabled (optional TURNSTILE_SECRET_KEY / TURNSTILE_SITE_KEY not configured)");
+    }
+
     let state = AppState {
         db: Arc::new(RwLock::new(None)),
         db_dir,
+        api_key,
+        turnstile_secret_key,
+        turnstile_site_key,
+        session_secret,
+        http_client: reqwest::Client::new(),
     };
     tracing::info!("database directory: {}", state.db_dir.display());
 
     // 构建应用路由
-    let api_routes = Router::new()
+    let auth_routes = Router::new()
+        .route("/config", get(get_auth_config))
+        .route("/login", post(login))
+        .route("/logout", post(logout));
+
+    let protected_routes = Router::new()
         .route("/connect", post(connect_db))
         .route("/db-files", get(list_dbs))
         .route("/tables", get(list_tables))
@@ -67,11 +119,15 @@ async fn main() {
         .route("/internals", get(get_sqlite_internals))
         .route("/query", post(execute_query))
         .route("/correct", post(correct_sql))
-        .layer(middleware::from_fn(auth_middleware));
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
 
     let app = Router::new()
         .route("/api/health", get(health_check))
-        .nest("/api", api_routes)
+        .nest("/api/auth", auth_routes)
+        .nest("/api", protected_routes)
         .fallback_service(ServeDir::new("dist"))
         .layer(TraceLayer::new_for_http())
         .with_state(state);

@@ -79,9 +79,61 @@ export interface SqliteInternals {
 }
 
 
+export interface AuthConfig {
+    turnstile_enabled: boolean;
+    turnstile_site_key: string | null;
+}
+
+export const fetchAuthConfig = async (): Promise<AuthConfig> => {
+    try {
+        const res = await fetch("./api/auth/config", { credentials: "same-origin" });
+        if (res.ok) {
+            return await res.json();
+        }
+    } catch (e) {
+        console.error("Failed to fetch auth config", e);
+    }
+    return { turnstile_enabled: false, turnstile_site_key: null };
+};
+
+export const login = async (
+    apiKey: string,
+    turnstileToken?: string,
+): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const res = await fetch("./api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({
+                api_key: apiKey,
+                turnstile_token: turnstileToken || null,
+            }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            return { success: true };
+        }
+        return { success: false, error: data.error || "Authentication failed" };
+    } catch (e: any) {
+        return { success: false, error: e.message || "Network error" };
+    }
+};
+
+export const logout = async (): Promise<void> => {
+    try {
+        await fetch("./api/auth/logout", {
+            method: "POST",
+            credentials: "same-origin",
+        });
+    } catch (e) {
+        console.error("Logout request failed", e);
+    }
+};
+
 const getHeaders = (apiKey: string) => ({
     "Content-Type": "application/json",
-    "x-api-key": apiKey,
+    ...(apiKey ? { "x-api-key": apiKey } : {}),
 });
 
 const handleResponse = async (res: Response, onUnauthorized?: () => void) => {
@@ -94,7 +146,8 @@ const handleResponse = async (res: Response, onUnauthorized?: () => void) => {
 
 export const fetchTables = async (apiKey: string, onUnauthorized?: () => void): Promise<string[]> => {
     const res = await fetch("./api/tables", {
-        headers: { "x-api-key": apiKey }
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
     });
     await handleResponse(res, onUnauthorized);
     if (res.ok) {
@@ -109,7 +162,10 @@ const fetchMetadata = async <T>(
     onUnauthorized: (() => void) | undefined,
     errorMessage: string,
 ): Promise<T> => {
-    const res = await fetch(path, { headers: { "x-api-key": apiKey } });
+    const res = await fetch(path, {
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
+    });
     await handleResponse(res, onUnauthorized);
     if (!res.ok) throw new Error(errorMessage);
     return await res.json() as T;
@@ -133,6 +189,7 @@ export const execSql = async (sql: string, apiKey: string, onUnauthorized?: () =
     const response = await fetch("./api/query", {
         method: "POST",
         headers: getHeaders(apiKey),
+        credentials: "same-origin",
         body: JSON.stringify({ sql }),
     });
 
@@ -163,6 +220,7 @@ export const correctSql = async (sql: string, table: string, apiKey: string, onU
     const response = await fetch("./api/correct", {
         method: "POST",
         headers: getHeaders(apiKey),
+        credentials: "same-origin",
         body: JSON.stringify({ sql, table }),
     });
 
@@ -172,7 +230,8 @@ export const correctSql = async (sql: string, table: string, apiKey: string, onU
 
 export const getDbFiles = async (apiKey: string, onUnauthorized?: () => void): Promise<string[]> => {
     const res = await fetch("./api/db-files", {
-        headers: { "x-api-key": apiKey }
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
     });
     await handleResponse(res, onUnauthorized);
     if (res.ok) {
@@ -187,7 +246,7 @@ export interface HealthResult {
 }
 
 export const getHealth = async (): Promise<HealthResult> => {
-    const res = await fetch("./api/health");
+    const res = await fetch("./api/health", { credentials: "same-origin" });
     return await res.json();
 };
 
@@ -200,6 +259,7 @@ export const connectDb = async (
     const res = await fetch("./api/connect", {
         method: "POST",
         headers: getHeaders(apiKey),
+        credentials: "same-origin",
         body: JSON.stringify({ path, create }),
     });
 

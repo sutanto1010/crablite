@@ -485,10 +485,7 @@ mod tests {
         for statement in statements {
             sqlx::query(statement).execute(&pool).await.unwrap();
         }
-        AppState {
-            db: std::sync::Arc::new(tokio::sync::RwLock::new(Some(pool))),
-            db_dir: std::path::PathBuf::new(),
-        }
+        AppState::for_test(pool)
     }
 
     async fn response_json(response: axum::response::Response) -> serde_json::Value {

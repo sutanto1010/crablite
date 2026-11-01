@@ -81,6 +81,9 @@ API_KEY=your_secret_key ./crablite
 | OPENAI_API_KEY | - | OpenAI API key (required for AI assistant). |
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API base URL. |
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI model name. |
+| TURNSTILE_SECRET_KEY | - | Cloudflare Turnstile Secret Key (optional; enables CAPTCHA verification in WebUI alongside API key). |
+| TURNSTILE_SITE_KEY | - | Cloudflare Turnstile Public Site Key (optional; required if `TURNSTILE_SECRET_KEY` is configured). |
+| SESSION_SECRET | Derived from `API_KEY` | Secret key used to sign HttpOnly session cookies (optional). |
 
 To use a different database directory in Docker, set `DB_DIR` and mount your volume at the same path, for example `-e DB_DIR=/data -v $(pwd)/data:/data`. To use a different port, set `PORT` and publish the same container port, for example `-e PORT=8080 -p 8080:8080`.
 

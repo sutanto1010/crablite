@@ -1,10 +1,12 @@
 pub mod ai;
+pub mod auth;
 pub mod connection;
 pub mod health;
 pub mod metadata;
 pub mod query;
 
 pub use ai::correct_sql;
+pub use auth::{get_auth_config, login, logout, verify_session_cookie};
 pub use connection::{connect_db, list_dbs, list_tables};
 pub use health::health_check;
 pub use metadata::{get_database_schema, get_sqlite_internals, get_table_schema};

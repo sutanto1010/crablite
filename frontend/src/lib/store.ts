@@ -43,6 +43,14 @@ export const resetStore = () => {
     setMetadataError(null);
 };
 
+export const logoutUser = async () => {
+    await api.logout();
+    localStorage.removeItem("api_key");
+    setApiKey("");
+    resetStore();
+    setIsAuthModalOpen(true);
+};
+
 export const fetchTables = async () => {
     try {
         const newTables = await api.fetchTables(apiKey(), onUnauthorized);

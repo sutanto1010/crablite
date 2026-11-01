@@ -67,6 +67,9 @@ services:
 | OPENAI_API_KEY | - | OpenAI API 密钥（AI 辅助功能必需）。|
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API 地址。|
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI 模型名称。|
+| TURNSTILE_SECRET_KEY | - | Cloudflare Turnstile 私钥（可选；配置后在 WebUI 中配合 API Key 进行人机验证）。|
+| TURNSTILE_SITE_KEY | - | Cloudflare Turnstile 公钥 Site Key（可选；配置私钥时必需）。|
+| SESSION_SECRET | 基于 `API_KEY` 生成 | 用于签名 HttpOnly 会话 Cookie 的密钥（可选）。|
 
 要在 Docker 中使用其他数据库目录，请设置 `DB_DIR` 并将数据卷挂载到相同路径，例如 `-e DB_DIR=/data -v $(pwd)/data:/data`。要使用其他端口，请设置 `PORT` 并发布相同的容器端口，例如 `-e PORT=8080 -p 8080:8080`。
 

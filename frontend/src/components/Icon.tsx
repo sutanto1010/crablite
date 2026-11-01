@@ -15,6 +15,7 @@ import error from "@material-symbols/svg-400/outlined/error.svg?raw";
 import formatListNumbered from "@material-symbols/svg-400/outlined/format_list_numbered.svg?raw";
 import key from "@material-symbols/svg-400/outlined/key.svg?raw";
 import lightMode from "@material-symbols/svg-400/outlined/light_mode.svg?raw";
+import logout from "@material-symbols/svg-400/outlined/logout.svg?raw";
 import memory from "@material-symbols/svg-400/outlined/memory.svg?raw";
 import playArrow from "@material-symbols/svg-400/outlined/play_arrow.svg?raw";
 import playArrowFilled from "@material-symbols/svg-400/outlined/play_arrow-fill.svg?raw";
@@ -43,6 +44,7 @@ const icons: Record<string, string> = {
   format_list_numbered: formatListNumbered,
   key,
   light_mode: lightMode,
+  logout,
   memory,
   play_arrow: playArrow,
   refresh,

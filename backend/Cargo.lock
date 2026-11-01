@@ -357,14 +357,17 @@ dependencies = [
 
 [[package]]
 name = "crablite"
-version = "26.11.4"
+version = "26.11.5"
 dependencies = [
  "axum",
  "clap",
  "dotenv",
+ "hex",
+ "hmac",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tokio",
  "tower",
