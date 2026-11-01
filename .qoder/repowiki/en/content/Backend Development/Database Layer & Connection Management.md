@@ -9,6 +9,13 @@
 - [Cargo.toml](file://backend/Cargo.toml)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated Recursive File Discovery section to reflect improved scanning logic with configurable DB_DIR support
+- Enhanced connection validation documentation to include new directory creation and error handling
+- Updated architecture diagrams to show DB_DIR configuration flow
+- Added documentation for the new recursive scanning implementation with relative path reporting
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -21,10 +28,10 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the database layer and connection management for the SQLite-backed web service. It covers how connections are established, configured (including WAL mode), validated, and reused; how .db files are discovered recursively with path traversal protection; how queries are executed against the active pool; and how errors are handled across failure modes such as permission issues and corruption. It also provides guidance on extending the system with new operations and optimizing performance through connection reuse and resource cleanup.
+This document explains the database layer and connection management for the SQLite-backed web service. It covers how connections are established, configured (including WAL mode), validated, and reused; how .db files are discovered recursively within a configurable database directory with path traversal protection; how queries are executed against the active pool; and how errors are handled across failure modes such as permission issues and corruption. It also provides guidance on extending the system with new operations and optimizing performance through connection reuse and resource cleanup.
 
 ## Project Structure
-The backend is an Axum-based HTTP server that exposes REST endpoints for connecting to a SQLite database, listing available databases, enumerating tables, executing queries, and correcting SQL. The application state holds a shared, thread-safe reference to the current SqlitePool.
+The backend is an Axum-based HTTP server that exposes REST endpoints for connecting to a SQLite database, listing available databases, enumerating tables, executing queries, and correcting SQL. The application state holds a shared, thread-safe reference to the current SqlitePool along with the configured database directory path.
 
 ```mermaid
 graph TB
@@ -38,10 +45,11 @@ D["query.rs<br/>execute_query, serialize_row"]
 E["health.rs<br/>(not analyzed here)"]
 end
 subgraph "State"
-F["state.rs<br/>AppState(db: Arc<RwLock<Option<SqlitePool>>>)"]
+F["state.rs<br/>AppState(db: Arc<RwLock<Option<SqlitePool>>>, db_dir: PathBuf)"]
 end
 subgraph "Database"
 G["SQLite via sqlx<br/>WAL mode, busy_timeout"]
+H["Configurable DB_DIR<br/>Environment variable"]
 end
 A --> B
 B --> C
@@ -49,38 +57,39 @@ B --> D
 C --> F
 D --> F
 F --> G
+F --> H
 ```
 
 **Diagram sources**
 - [main.rs:35-72](file://backend/src/main.rs#L35-L72)
 - [connection.rs:20-144](file://backend/src/handlers/connection.rs#L20-L144)
 - [query.rs:101-200](file://backend/src/handlers/query.rs#L101-L200)
-- [state.rs:5-8](file://backend/src/state.rs#L5-L8)
+- [state.rs:5-10](file://backend/src/state.rs#L5-L10)
 
 **Section sources**
-- [main.rs:1-74](file://backend/src/main.rs#L1-L74)
-- [state.rs:1-9](file://backend/src/state.rs#L1-L9)
+- [main.rs:1-84](file://backend/src/main.rs#L1-L84)
+- [state.rs:1-11](file://backend/src/state.rs#L1-L11)
 
 ## Core Components
-- Application State: Holds a single, process-wide SqlitePool behind a read-write lock so handlers can safely access or replace the active connection pool.
-- Connection Handler: Exposes endpoints to discover .db files, establish a connection with WAL enabled, validate WAL mode, and list tables from the connected database.
+- Application State: Holds a single, process-wide SqlitePool behind a read-write lock so handlers can safely access or replace the active connection pool, along with the configured database directory path.
+- Connection Handler: Exposes endpoints to discover .db files recursively within the configured DB_DIR, establish a connection with WAL enabled, validate WAL mode, and list tables from the connected database.
 - Query Handler: Executes arbitrary SQL against the active pool, returning structured results with column metadata and timing information.
 - Dependencies: sqlx (SQLite driver), axum (HTTP framework), tokio (async runtime).
 
 Key responsibilities:
 - Establishing and configuring the SQLite connection pool (WAL mode, busy timeout).
-- Validating the connection’s journal mode to ensure concurrent access support.
-- Safely scanning the filesystem for .db files while preventing directory traversal.
+- Validating the connection's journal mode to ensure concurrent access support.
+- Safely scanning the filesystem recursively within DB_DIR for .db files while preventing directory traversal.
 - Executing queries and mapping SQLite rows into JSON-compatible structures.
 
 **Section sources**
-- [state.rs:5-8](file://backend/src/state.rs#L5-L8)
+- [state.rs:5-10](file://backend/src/state.rs#L5-L10)
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
 - [connection.rs:131-144](file://backend/src/handlers/connection.rs#L131-L144)
 - [query.rs:101-200](file://backend/src/handlers/query.rs#L101-L200)
 
 ## Architecture Overview
-The server initializes logging, constructs AppState with a None pool, builds routes under /api, and serves static assets. Requests flow through authentication middleware before reaching handlers. Handlers read/write the shared pool and interact with SQLite via sqlx.
+The server initializes logging, constructs AppState with a None pool and configured DB_DIR, builds routes under /api, and serves static assets. Requests flow through authentication middleware before reaching handlers. Handlers read/write the shared pool and interact with SQLite via sqlx.
 
 ```mermaid
 sequenceDiagram
@@ -90,12 +99,15 @@ participant Auth as "Auth Middleware"
 participant Conn as "connect_db handler"
 participant Pool as "SqlitePool"
 participant DB as "SQLite Engine"
+participant FS as "File System"
 Client->>Axum : POST /api/connect {path, create}
 Axum->>Auth : Validate x-api-key
 Auth-->>Axum : Authorized
 Axum->>Conn : Invoke connect_db
 Conn->>Conn : Validate path (no "..")
+Conn->>FS : Check/create DB_DIR
 Conn->>Conn : Ensure db/ exists
+Conn->>Conn : Build full path from DB_DIR + payload.path
 Conn->>Pool : Connect with WAL + busy_timeout
 Pool->>DB : Open database file
 Conn->>Conn : verify_wal_mode()
@@ -113,7 +125,7 @@ Axum-->>Client : Connected
 ### SQLite Connection Lifecycle
 - Establishment:
   - The connect endpoint validates the requested path to prevent directory traversal.
-  - It ensures the base directory exists and constructs the full path.
+  - It ensures the base directory exists and constructs the full path using the configured DB_DIR.
   - It creates a SqlitePool with:
     - Journal mode set to WAL.
     - busy_timeout configured to mitigate contention.
@@ -127,8 +139,9 @@ Axum-->>Client : Connected
 ```mermaid
 flowchart TD
 Start(["POST /api/connect"]) --> CheckPath["Reject if path contains '..'"]
-CheckPath --> EnsureDir["Ensure 'db/' directory exists"]
-EnsureDir --> BuildPath["Build full path from 'db/' + payload.path"]
+CheckPath --> CheckDBDir["Check/create DB_DIR"]
+CheckDBDir --> EnsureDir["Ensure 'db/' directory exists"]
+EnsureDir --> BuildPath["Build full path from DB_DIR + payload.path"]
 BuildPath --> ExistsCheck{"File exists?"}
 ExistsCheck --> |No and create=false| NotFound["Return NOT_FOUND"]
 ExistsCheck --> |Yes or create=true| CreatePool["Create SqlitePool with WAL + busy_timeout"]
@@ -148,19 +161,27 @@ Done --> End
 - [connection.rs:131-144](file://backend/src/handlers/connection.rs#L131-L144)
 
 ### Recursive File Discovery with Security Controls
+**Updated** The database scanning logic has been improved to recursively search within a configurable DB_DIR while maintaining relative path reporting for API responses.
+
 - Scanning:
-  - Recursively traverses the db directory.
+  - Recursively traverses the configured DB_DIR directory structure.
   - Includes only regular files ending with .db.
   - Excludes SQLite auxiliary files (-wal, -shm).
-  - Records relative paths from the db root for safe client usage.
+  - Records relative paths from the DB_DIR root for safe client usage.
+  - Automatically creates DB_DIR if it doesn't exist.
 - Security:
   - Directory traversal is blocked at the connect endpoint by rejecting payloads containing "..".
-  - Only files under db are exposed via list_dbs.
+  - Only files under the configured DB_DIR are exposed via list_dbs.
+  - Relative path reporting ensures clients cannot access files outside the configured directory.
 
 ```mermaid
 flowchart TD
-S(["Start list_dbs"]) --> Init["Initialize empty result list"]
-Init --> ReadDir["Read entries of 'db'"]
+S(["Start list_dbs"]) --> GetDBDir["Get configured DB_DIR from AppState"]
+GetDBDir --> CheckDBDir{"DB_DIR exists?"}
+CheckDBDir --> |No| CreateDBDir["Create DB_DIR"]
+CheckDBDir --> |Yes| Init["Initialize empty result list"]
+CreateDBDir --> Init
+Init --> ReadDir["Read entries of DB_DIR"]
 ReadDir --> ForEach{"Entry is file or dir?"}
 ForEach --> |File| CheckExt["Is name '*.db' and not '-wal'/'-shm'?"]
 CheckExt --> |Yes| AddRel["Add relative path to result"]
@@ -233,7 +254,7 @@ end
 - [query.rs:101-200](file://backend/src/handlers/query.rs#L101-L200)
 
 ### Data Models and Types
-- AppState: Holds the active SqlitePool in a thread-safe container.
+- AppState: Holds the active SqlitePool in a thread-safe container and the configured database directory path.
 - ConnectRequest: Contains path and optional create flag.
 - QueryRequest/QueryResponse: Define input/output shapes for query execution.
 
@@ -241,6 +262,7 @@ end
 classDiagram
 class AppState {
 +db : Arc<RwLock<Option<SqlitePool>>>
++db_dir : PathBuf
 }
 class ConnectRequest {
 +path : String
@@ -260,16 +282,17 @@ class QueryResponse {
 class SqlitePool
 class Value
 AppState --> SqlitePool : "holds"
+AppState --> PathBuf : "stores DB_DIR"
 QueryResponse --> Value : "contains"
 ```
 
 **Diagram sources**
-- [state.rs:5-8](file://backend/src/state.rs#L5-L8)
+- [state.rs:5-10](file://backend/src/state.rs#L5-L10)
 - [connection.rs:13-18](file://backend/src/handlers/connection.rs#L13-L18)
 - [query.rs:12-25](file://backend/src/handlers/query.rs#L12-L25)
 
 **Section sources**
-- [state.rs:5-8](file://backend/src/state.rs#L5-L8)
+- [state.rs:5-10](file://backend/src/state.rs#L5-L10)
 - [connection.rs:13-18](file://backend/src/handlers/connection.rs#L13-L18)
 - [query.rs:12-25](file://backend/src/handlers/query.rs#L12-L25)
 
@@ -281,7 +304,7 @@ QueryResponse --> Value : "contains"
 - Database:
   - sqlx with sqlite feature: Provides connection pooling and prepared statements.
 - Configuration:
-  - dotenv: Loads environment variables.
+  - dotenv: Loads environment variables including DB_DIR.
   - tracing/tracing-subscriber: Structured logging.
 
 ```mermaid
@@ -316,7 +339,10 @@ Cargo --> Dotenv["dotenv"]
   - Limit large result sets in the UI layer to reduce memory pressure.
 - I/O and Disk:
   - WAL generates additional files (.db-wal, .db-shm); ensure sufficient disk space and permissions.
-  - Keep the db directory on fast storage for better throughput.
+  - Keep the DB_DIR on fast storage for better throughput.
+- Directory Scanning Optimization:
+  - Recursive scanning is performed only when listing databases, not on every request.
+  - Relative path reporting reduces path processing overhead.
 
 [No sources needed since this section provides general guidance]
 
@@ -325,14 +351,14 @@ Common issues and resolutions:
 - Path Traversal Blocked:
   - Symptom: Request rejected due to invalid path.
   - Cause: Payload contains "..".
-  - Resolution: Provide a path relative to the db directory without traversal sequences.
+  - Resolution: Provide a path relative to the DB_DIR without traversal sequences.
 - Database Not Found:
   - Symptom: 404 when connecting.
   - Cause: File does not exist and create flag is false.
-  - Resolution: Set create=true or ensure the file exists under db/.
+  - Resolution: Set create=true or ensure the file exists under DB_DIR.
 - Permission Denied:
   - Symptom: Connection fails with OS-level errors.
-  - Cause: Process lacks read/write permissions for db/ or target file.
+  - Cause: Process lacks read/write permissions for DB_DIR or target file.
   - Resolution: Adjust filesystem permissions for the running user.
 - WAL Mode Mismatch:
   - Symptom: Warning about WAL verification failure.
@@ -346,6 +372,14 @@ Common issues and resolutions:
   - Symptom: Intermittent lock timeouts under heavy concurrency.
   - Cause: Long-running transactions or excessive writers.
   - Resolution: Shorten transaction scope, optimize queries, or tune busy_timeout.
+- DB_DIR Configuration Issues:
+  - Symptom: Cannot list databases or connect to files.
+  - Cause: DB_DIR environment variable not set or incorrect path.
+  - Resolution: Set DB_DIR environment variable to the desired database directory path.
+- Recursive Scanning Problems:
+  - Symptom: Missing databases in list_dbs response.
+  - Cause: Insufficient permissions to read subdirectories or nested database files.
+  - Resolution: Ensure proper read permissions for all subdirectories within DB_DIR.
 
 **Section sources**
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
@@ -353,6 +387,6 @@ Common issues and resolutions:
 - [query.rs:101-200](file://backend/src/handlers/query.rs#L101-L200)
 
 ## Conclusion
-The database layer centers around a single, reusable SqlitePool configured with WAL mode and a busy timeout to support concurrent access. The connect endpoint enforces security by blocking directory traversal and optionally creating missing databases. A recursive scanner lists available .db files safely. Query execution maps SQLite rows to JSON-friendly structures and reports timing. To extend functionality, add new handlers that operate on the shared pool, implement robust error handling, and consider adding explicit connection lifecycle controls (e.g., closing pools) and metrics for observability.
+The database layer centers around a single, reusable SqlitePool configured with WAL mode and a busy timeout to support concurrent access. The connect endpoint enforces security by blocking directory traversal and optionally creating missing databases. An improved recursive scanner lists available .db files safely within a configurable DB_DIR, maintaining relative path reporting for API responses. Query execution maps SQLite rows to JSON-friendly structures and reports timing. To extend functionality, add new handlers that operate on the shared pool, implement robust error handling, and consider adding explicit connection lifecycle controls (e.g., closing pools) and metrics for observability.
 
 [No sources needed since this section summarizes without analyzing specific files]

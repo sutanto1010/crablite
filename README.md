@@ -1,13 +1,13 @@
 <div align="center">
   <img src="frontend/public/logo.png" width=256></img>
-  <p><strong>Rust SQLite WebUI - A extreme lightweight SQLite Web administration tool</strong></p>
+  <p><strong>crablite - A extreme lightweight SQLite Web administration tool</strong></p>
   
   English | [简体中文](README_CN.md)
   
 </div>
 
 
-# SQLite WebUI
+# crablite
 
 A extreme lightweight SQLite Web administration tool based on Rust (Axum) and Solid.js.
 
@@ -35,8 +35,8 @@ docker run -d \
   -p 3000:3000 \
   -v sqlite.db:/app/db/sqlite.db \
   -e API_KEY=your_secret_key \
-  --name sqlite-webui \
-  wangyucode/rust-sqlite-webui
+  --name crablite \
+  wangyucode/crablite
 ```
 
 ### Docker Compose
@@ -44,8 +44,8 @@ docker run -d \
 ```yaml
 version: '3'
 services:
-  sqlite-webui:
-    image: wangyucode/rust-sqlite-webui
+  crablite:
+    image: wangyucode/crablite
     ports:
       - "3000:3000"
     volumes:
@@ -60,9 +60,9 @@ services:
 2. Extract the archive and run the application from the extracted directory:
 
 ```bash
-tar -xzf rust-sqlite-webui-v<VERSION>-<TARGET>.tar.gz
-cd rust-sqlite-webui-v<VERSION>-<TARGET>
-API_KEY=your_secret_key ./rust-sqlite-webui
+tar -xzf crablite-v<VERSION>-<TARGET>.tar.gz
+cd crablite-v<VERSION>-<TARGET>
+API_KEY=your_secret_key ./crablite
 ```
 
 `<TARGET>` is the Rust target triple, such as `x86_64-unknown-linux-gnu` or `aarch64-apple-darwin`. Keep `dist/` in the extracted directory because it contains the WebUI assets. Open `http://localhost:3000` after the application starts.
@@ -77,7 +77,7 @@ API_KEY=your_secret_key ./rust-sqlite-webui
 | API_KEY | `your-super-secure-key` | Authentication key for accessing the WebUI. |
 | DB_DIR | `db` (`/app/db` in Docker) | Directory used to discover and store SQLite database files. |
 | PORT | `3000` | Port on which the backend listens. Must be a valid `u16` port number. |
-| RUST_LOG | `rust_sqlite_webui=debug,tower_http=debug` | Logging level configuration. |
+| RUST_LOG | `crablite=debug,tower_http=debug` | Logging level configuration. |
 | OPENAI_API_KEY | - | OpenAI API key (required for AI assistant). |
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API base URL. |
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI model name. |

@@ -12,6 +12,14 @@
 - [Cargo.toml](file://backend/Cargo.toml)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated Rust edition from 2026 to 2024 in Cargo.toml
+- Bumped version from previous release to 26.11.2
+- Enhanced database directory handling with `create_dir_all` for nested structures
+- Improved error handling for directory creation operations
+- Added configurable database directory path via DB_DIR environment variable
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -33,6 +41,7 @@ The backend is an Axum-based HTTP service that:
 - Exposes REST endpoints under /api
 - Serves static frontend assets from dist
 - Applies authentication middleware to API routes
+- Supports configurable database directory paths with automatic nested directory creation
 
 ```mermaid
 graph TB
@@ -48,32 +57,34 @@ H --> J["ServeDir::new('dist')<br/>Static files"]
 ```
 
 **Diagram sources**
-- [main.rs:35-72](file://backend/src/main.rs#L35-L72)
+- [main.rs:36-83](file://backend/src/main.rs#L36-L83)
 - [handlers/mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
-- [state.rs:1-9](file://backend/src/state.rs#L1-L9)
+- [state.rs:6-10](file://backend/src/state.rs#L6-L10)
 
 **Section sources**
-- [main.rs:1-74](file://backend/src/main.rs#L1-L74)
+- [main.rs:1-84](file://backend/src/main.rs#L1-L84)
 - [handlers/mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
 
 ## Core Components
-- Application state: Holds a shared, asynchronously locked optional SQLite pool.
+- Application state: Holds a shared, asynchronously locked optional SQLite pool and configurable database directory path.
 - Handlers: Organized by feature (connection, query, ai, health).
 - Database layer: Uses sqlx with Tokio runtime, WAL journal mode, busy timeout, and pool-based connections.
 - Authentication: Header-based API key middleware protecting API routes.
 - Logging: Tracing subscriber configured via environment variable RUST_LOG.
 
 Key responsibilities:
-- main.rs: Bootstraps tracing, constructs AppState, registers routes, applies middleware, binds TCP listener.
-- state.rs: Defines AppState with Arc<RwLock<Option<SqlitePool>>>.
+- main.rs: Bootstraps tracing, constructs AppState with configurable db_dir, registers routes, applies middleware, binds TCP listener.
+- state.rs: Defines AppState with Arc<RwLock<Option<SqlitePool>>> and PathBuf for database directory.
 - handlers/connection.rs: Lists .db files recursively, connects to a SQLite database, verifies WAL mode, lists tables.
 - handlers/query.rs: Executes SQL, serializes rows into JSON, measures execution time.
 - handlers/ai.rs: Calls OpenAI-compatible API to correct or generate SQL based on table schema and sample row.
 - handlers/health.rs: Returns status and version info.
 
+**Updated** Enhanced database directory handling with automatic nested directory creation using `create_dir_all`.
+
 **Section sources**
-- [main.rs:35-72](file://backend/src/main.rs#L35-L72)
-- [state.rs:1-9](file://backend/src/state.rs#L1-L9)
+- [main.rs:36-83](file://backend/src/main.rs#L36-L83)
+- [state.rs:6-10](file://backend/src/state.rs#L6-L10)
 - [handlers/connection.rs:20-145](file://backend/src/handlers/connection.rs#L20-L145)
 - [handlers/query.rs:101-200](file://backend/src/handlers/query.rs#L101-L200)
 - [handlers/ai.rs:24-148](file://backend/src/handlers/ai.rs#L24-L148)
@@ -83,7 +94,7 @@ Key responsibilities:
 The system follows a layered architecture:
 - HTTP Layer: Axum router with middleware (auth, tracing) and static file serving.
 - Handler Layer: Feature-specific handlers for connection, queries, AI, and health.
-- State Layer: Shared AppState containing the database pool.
+- State Layer: Shared AppState containing the database pool and configurable database directory.
 - Data Layer: SQLite via sqlx with connection pooling and WAL mode.
 
 ```mermaid
@@ -98,7 +109,7 @@ Client->>Axum : POST /api/connect {path, create}
 Axum->>Auth : validate x-api-key
 Auth-->>Axum : allow or reject
 Axum->>ConnH : connect_db(payload)
-ConnH->>FS : validate path, ensure db dir
+ConnH->>FS : validate path, ensure db dir with create_dir_all
 ConnH->>Pool : SqlitePool : : connect_with(options)
 Pool-->>ConnH : Ok(pool)
 ConnH->>Pool : verify_wal_mode()
@@ -108,8 +119,8 @@ Axum-->>Client : 200 OK
 ```
 
 **Diagram sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [main.rs:52-65](file://backend/src/main.rs#L52-L65)
+- [main.rs:23-34](file://backend/src/main.rs#L23-L34)
+- [main.rs:57-71](file://backend/src/main.rs#L57-L71)
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
 - [connection.rs:131-144](file://backend/src/handlers/connection.rs#L131-L144)
 
@@ -118,7 +129,7 @@ Axum-->>Client : 200 OK
 ### Entry Point and Routing (main.rs)
 Responsibilities:
 - Initialize dotenv and tracing subscriber with EnvFilter and fmt layer.
-- Create AppState with Arc<RwLock<Option<SqlitePool>>> initialized to None.
+- Create AppState with Arc<RwLock<Option<SqlitePool>>> initialized to None and configurable db_dir.
 - Register API routes under /api with auth middleware.
 - Serve static frontend assets from dist.
 - Bind to port 3000 and start the server.
@@ -130,11 +141,17 @@ Authentication middleware:
 Logging:
 - Configured via RUST_LOG env var; defaults include debug logs for app and tower_http.
 
+Database Directory Configuration:
+- Uses DB_DIR environment variable to configure database storage location.
+- Defaults to "db" directory if not specified.
+- Logs the configured database directory path during startup.
+
 ```mermaid
 flowchart TD
 Start(["Process start"]) --> Dotenv["Load .env"]
 Dotenv --> InitTracing["Init tracing subscriber"]
-InitTracing --> BuildState["Create AppState(db=None)"]
+InitTracing --> GetDBDir["Get DB_DIR env var or default 'db'"]
+GetDBDir --> BuildState["Create AppState(db=None, db_dir)"]
 BuildState --> BuildRouter["Build Router with /api routes"]
 BuildRouter --> ApplyMiddleware["Apply auth_middleware"]
 ApplyMiddleware --> ServeStatic["Serve static 'dist'"]
@@ -143,21 +160,26 @@ BindPort --> RunServer["Start axum::serve"]
 ```
 
 **Diagram sources**
-- [main.rs:35-72](file://backend/src/main.rs#L35-L72)
+- [main.rs:36-83](file://backend/src/main.rs#L36-L83)
+
+**Updated** Added DB_DIR environment variable support for configurable database directory paths.
 
 **Section sources**
-- [main.rs:1-74](file://backend/src/main.rs#L1-L74)
+- [main.rs:1-84](file://backend/src/main.rs#L1-L84)
 
 ### State Management (state.rs)
-- AppState holds a shared database pool wrapped in Arc<RwLock<Option<SqlitePool>>>.
+- AppState holds a shared database pool wrapped in Arc<RwLock<Option<SqlitePool>>> and a PathBuf for the database directory.
 - Cloneable for sharing across handlers.
 
 Design notes:
 - Using RwLock allows concurrent reads and exclusive writes when connecting/disconnecting.
 - Option<SqlitePool> indicates no active connection until connect_db is called.
+- PathBuf db_dir enables flexible database storage locations.
+
+**Updated** Added db_dir field to support configurable database directory paths.
 
 **Section sources**
-- [state.rs:1-9](file://backend/src/state.rs#L1-L9)
+- [state.rs:1-11](file://backend/src/state.rs#L1-L11)
 
 ### Connection Management and File Discovery (handlers/connection.rs)
 Endpoints:
@@ -167,7 +189,7 @@ Endpoints:
 
 Security and validation:
 - Rejects paths containing ".." to prevent directory traversal.
-- Ensures db directory exists; creates it if missing.
+- Ensures db directory exists using `create_dir_all` for nested structures; creates it if missing.
 - Validates existence unless create flag is set.
 
 Database options:
@@ -180,10 +202,12 @@ Recursive file discovery:
 - Filters only .db files and excludes -wal/-shm suffixes.
 - Records relative paths from db root.
 
+**Updated** Enhanced directory handling with `create_dir_all` to support nested directory structures and improved error handling for directory creation failures.
+
 ```mermaid
 flowchart TD
 Start(["list_dbs"]) --> CheckDBDir["Check 'db' dir exists"]
-CheckDBDir --> |No| CreateDir["Create 'db' dir"]
+CheckDBDir --> |No| CreateDir["Use create_dir_all to create nested 'db' dir"]
 CreateDir --> ReturnEmpty["Return []"]
 CheckDBDir --> |Yes| Scan["Recursively scan entries"]
 Scan --> Filter[".db only, exclude -wal/-shm"]
@@ -197,7 +221,7 @@ Collect --> End(["Return JSON array"])
 ```mermaid
 flowchart TD
 Start(["connect_db"]) --> ValidatePath["Reject '..' in path"]
-ValidatePath --> EnsureDir["Ensure 'db' dir exists"]
+ValidatePath --> EnsureDir["Use create_dir_all to ensure 'db' dir exists"]
 EnsureDir --> Exists{"File exists or create?"}
 Exists --> |No and not create| NotFound["404 Not Found"]
 Exists --> |Yes or create| BuildOpts["Build SqliteConnectOptions<br/>WAL + busy_timeout"]
@@ -212,7 +236,7 @@ UpdateState --> Ok["200 OK"]
 - [connection.rs:131-144](file://backend/src/handlers/connection.rs#L131-L144)
 
 **Section sources**
-- [connection.rs:20-145](file://backend/src/handlers/connection.rs#L20-L145)
+- [connection.rs:1-145](file://backend/src/handlers/connection.rs#L1-L145)
 
 ### Query Execution (handlers/query.rs)
 Endpoint:
@@ -311,6 +335,8 @@ External dependencies and their roles:
 - reqwest: HTTP client for AI provider calls.
 - dotenv: Environment variable loading.
 
+**Updated** Rust edition updated to 2024 and version bumped to 26.11.2.
+
 ```mermaid
 graph LR
 Axum["axum"] --> Main["main.rs"]
@@ -341,12 +367,14 @@ Dotenv["dotenv"] --> Main
 - Async I/O: Tokio runtime handles asynchronous operations for HTTP and database interactions.
 - Tracing: Use TraceLayer and structured logs to monitor request latency and errors.
 - Release optimizations: Binary stripping, LTO, and single codegen unit improve release performance.
+- File system operations: `create_dir_all` efficiently handles nested directory creation with proper error handling.
 
 Recommendations:
 - Tune pool size based on expected concurrency and workload characteristics.
 - Monitor WAL mode verification and adjust busy_timeout if needed.
 - Profile slow queries and consider indexes or query restructuring.
 - Use structured logging levels appropriately to balance verbosity and performance.
+- Configure appropriate DB_DIR paths for optimal file system performance.
 
 [No sources needed since this section provides general guidance]
 
@@ -358,18 +386,25 @@ Common issues and resolutions:
 - Directory traversal blocked: Avoid ".." in requested paths; use allowed subdirectories under db/.
 - Missing AI credentials: Set OPENAI_API_KEY; configure OPENAI_BASE_URL and OPENAI_MODEL as needed.
 - Static files not served: Ensure dist directory exists and contains built frontend assets.
+- Database directory creation failed: Check filesystem permissions and disk space; verify DB_DIR environment variable configuration.
 
 Operational tips:
 - Inspect logs via RUST_LOG to identify errors and request flows.
 - Validate environment variables using a .env file loaded by dotenv.
 - Test endpoints with curl or Postman, verifying headers and payloads.
+- Configure DB_DIR environment variable to customize database storage location.
+- Monitor directory creation operations in logs for permission issues.
+
+**Updated** Added troubleshooting guidance for database directory creation and DB_DIR configuration.
 
 **Section sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
+- [main.rs:23-34](file://backend/src/main.rs#L23-L34)
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
 - [ai.rs:24-37](file://backend/src/handlers/ai.rs#L24-L37)
 
 ## Conclusion
 The backend implements a secure, modular, and performant SQLite web UI server using Axum and sqlx. It leverages connection pooling, WAL mode, and async I/O to handle concurrent workloads efficiently. The handler organization separates concerns clearly, while authentication middleware protects API endpoints. Logging and tracing provide observability. Extensibility points include adding new endpoints, integrating additional AI providers, and expanding database operations through the existing state and handler patterns.
+
+**Updated** Enhanced with improved database directory handling supporting nested structures and configurable storage locations via DB_DIR environment variable. The project has been updated to Rust edition 2024 and version 26.11.2 for improved compatibility and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]

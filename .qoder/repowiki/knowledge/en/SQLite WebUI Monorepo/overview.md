@@ -1,1 +1,0 @@
-Monorepo wiring a Rust/Axum backend and SolidJS frontend into a single statically-hosted SQLite administration tool, built via a multi-stage Dockerfile.

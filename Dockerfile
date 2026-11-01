@@ -41,7 +41,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata
 
 # Copy backend binary
-COPY --from=backend-builder /app/backend/target/release/rust-sqlite-webui .
+COPY --from=backend-builder /app/backend/target/release/crablite .
 
 # Copy frontend assets
 COPY --from=frontend-builder /app/dist ./dist
@@ -52,4 +52,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["./rust-sqlite-webui"]
+CMD ["./crablite"]

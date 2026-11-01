@@ -1,6 +1,6 @@
 [English] | [简体中文](design_CN.md)
 
-# SQLite WebUI Design Document
+# crablite Design Document
 
 ## 1. Project Overview
 
@@ -38,7 +38,7 @@ graph TD
 
 ### 3.2 Directory Structure Planning
 ```text
-rust-sqlite-webui/
+crablite/
 ├── backend/            # Backend source code (Rust)
 │   ├── Cargo.toml
 │   └── src/

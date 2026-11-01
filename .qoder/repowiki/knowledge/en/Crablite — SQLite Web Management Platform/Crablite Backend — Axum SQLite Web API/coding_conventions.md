@@ -1,4 +1,4 @@
 - Handlers extract shared state via `axum::extract::State<AppState>` and access the pool through `state.db.read().await` / `write().await` rather than global variables.
 - Handler functions return `impl IntoResponse`, using `(StatusCode, &str).into_response()` for errors and `Json(...)` for structured JSON payloads.
-- Request bodies are deserialized with `serde::Deserialize` structs (`ConnectRequest`, `QueryRequest`) annotated with `#[derive(Deserialize)]` and optional fields via `#[serde(default)]`.
+- Request bodies are deserialized with `serde::Deserialize` structs annotated with `#[derive(Deserialize)]` and optional fields via `#[serde(default)]`.
 - Errors are logged through `tracing::error!` / `tracing::warn!` before returning an HTTP status, keeping logging and response construction co-located in each handler.

@@ -6,8 +6,17 @@
 - [README.md](file://README.md)
 - [backend/Cargo.toml](file://backend/Cargo.toml)
 - [backend/src/main.rs](file://backend/src/main.rs)
-- [.github/workflows/docker-publish.yml](file://.github/workflows/docker-publish.yml)
+- [backend/src/state.rs](file://backend/src/state.rs)
+- [backend/src/handlers/connection.rs](file://backend/src/handlers/connection.rs)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated Environment Variables section to highlight DB_DIR and PORT configuration capabilities
+- Enhanced Volume Mounting Strategy with DB_DIR examples and subdirectory support
+- Added comprehensive Docker Compose configurations for development and production
+- Expanded troubleshooting guide with DB_DIR and PORT-specific issues
+- Updated security considerations to include volume mounting best practices
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -21,7 +30,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive Docker deployment guidance for CrabLite (rust-sqlite-webui). It explains the multi-stage build process, container configuration, environment variables, volume mounting strategies, port exposure, and security considerations. It also includes guidance for Docker Compose usage, troubleshooting common issues, performance optimization tips, and best practices for production deployments.
+This document provides comprehensive Docker deployment guidance for CrabLite (rust-sqlite-webui). It explains the multi-stage build process, container configuration, environment variables including the enhanced DB_DIR and PORT configuration, volume mounting strategies, port exposure, and security considerations. It also includes guidance for Docker Compose usage, troubleshooting common issues, performance optimization tips, and best practices for production deployments.
 
 ## Project Structure
 The repository contains:
@@ -57,20 +66,21 @@ BE --> |release binary| RT
   - Runtime stage uses alpine:latest, installs minimal runtime dependencies, copies the compiled binary and frontend assets, sets environment variables, exposes port 3000, and runs the binary.
 - Environment variables:
   - RUST_LOG controls logging verbosity.
-  - PORT is set in the Dockerfile; the application binds to port 3000 by default.
+  - PORT is set in the Dockerfile; the application binds to port 3000 by default but can be overridden.
+  - DB_DIR allows custom database directory configuration for flexible storage layouts.
   - API_KEY is used for authentication via an HTTP header.
 - Volume strategy:
-  - SQLite database files are scanned recursively under /app/db/. Mount your host directory or file to this path to persist data across container restarts.
+  - SQLite database files are scanned recursively under the configured DB_DIR path.
+  - Supports subdirectory organization and flexible volume mounting patterns.
 
 **Section sources**
 - [Dockerfile:1-55](file://Dockerfile#L1-L55)
-- [backend/src/main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [backend/src/main.rs:39-45](file://backend/src/main.rs#L39-L45)
-- [backend/src/main.rs:67-72](file://backend/src/main.rs#L67-L72)
-- [README.md:70-83](file://README.md#L70-L83)
+- [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
+- [backend/src/main.rs:74-78](file://backend/src/main.rs#L74-L78)
+- [backend/src/state.rs:6-10](file://backend/src/state.rs#L6-L10)
 
 ## Architecture Overview
-The containerized application serves a static frontend and a REST API backend from a single process. The frontend assets are served as fallback content when no API route matches.
+The containerized application serves a static frontend and a REST API backend from a single process. The frontend assets are served as fallback content when no API route matches. Database operations are performed against SQLite files located in the configured DB_DIR.
 
 ```mermaid
 sequenceDiagram
@@ -79,7 +89,9 @@ participant Container as "CrabLite Container"
 participant Router as "Axum Router"
 participant Static as "ServeDir(dist)"
 participant DB as "SQLite Filesystem"
+participant Config as "Environment Config"
 Client->>Container : HTTP request
+Container->>Config : Read DB_DIR, PORT
 Container->>Router : Route match
 alt API route (/api/*)
 Router-->>Client : JSON response
@@ -87,12 +99,13 @@ else Fallback
 Router->>Static : Serve static asset
 Static-->>Client : HTML/CSS/JS
 end
-Note over DB : Database files under /app/db/ are mounted via volumes
+Note over DB : Database files under DB_DIR are mounted via volumes
 ```
 
 **Diagram sources**
-- [backend/src/main.rs:51-65](file://backend/src/main.rs#L51-L65)
-- [Dockerfile:43-47](file://Dockerfile#L43-L47)
+- [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
+- [backend/src/main.rs:74-78](file://backend/src/main.rs#L74-L78)
+- [Dockerfile:49-53](file://Dockerfile#L49-L53)
 
 ## Detailed Component Analysis
 
@@ -143,67 +156,165 @@ Key behaviors:
 ### Container Configuration
 
 #### Environment Variables
-- RUST_LOG: Controls tracing log levels. Default is set in the Dockerfile; the app also reads it at startup.
-- PORT: Declared in the Dockerfile; the app binds to port 3000 by default.
-- API_KEY: Used by the auth middleware to validate requests via the x-api-key header.
+Enhanced environment variable support for flexible deployment:
 
-Notes:
-- If API_KEY is not provided, the app falls back to a default value.
-- OPENAI_* variables are supported for AI features but are optional.
+- **RUST_LOG**: Controls tracing log levels. Default is set in the Dockerfile; the app also reads it at startup.
+- **PORT**: Declared in the Dockerfile as 3000; the app binds to this port by default but can be overridden at runtime.
+- **DB_DIR**: Allows custom database directory configuration. Defaults to "db" relative path, which becomes "/app/db" in Docker containers.
+- **API_KEY**: Used by the auth middleware to validate requests via the x-api-key header.
+
+Configuration examples:
+```bash
+# Custom database directory
+docker run -e DB_DIR=/custom/path -v ./data:/custom/path crablite
+
+# Custom port
+docker run -e PORT=8080 -p 8080:8080 crablite
+
+# Combined configuration
+docker run -e DB_DIR=/data/dbs -e PORT=8080 \
+  -v ./data:/data/dbs -p 8080:8080 crablite
+```
+
+**Updated** Enhanced with DB_DIR and PORT environment variable support for flexible container configuration.
 
 **Section sources**
-- [Dockerfile:49-51](file://Dockerfile#L49-L51)
-- [backend/src/main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [backend/src/main.rs:39-45](file://backend/src/main.rs#L39-L45)
-- [README.md:74-83](file://README.md#L74-L83)
+- [Dockerfile:49-53](file://Dockerfile#L49-L53)
+- [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
+- [backend/src/main.rs:74-78](file://backend/src/main.rs#L74-L78)
+- [README.md:74-85](file://README.md#L74-L85)
 
 #### Port Exposure
-- The container exposes port 3000.
-- The application binds to 0.0.0.0:3000 by default.
+- The container exposes port 3000 by default.
+- The application binds to 0.0.0.0:PORT where PORT defaults to 3000 but can be configured via environment variable.
+
+Port configuration examples:
+```bash
+# Use default port 3000
+docker run -p 3000:3000 crablite
+
+# Use custom port 8080
+docker run -e PORT=8080 -p 8080:8080 crablite
+```
+
+**Updated** Now supports dynamic port configuration via PORT environment variable.
 
 **Section sources**
 - [Dockerfile:53](file://Dockerfile#L53)
-- [backend/src/main.rs:67-72](file://backend/src/main.rs#L67-L72)
+- [backend/src/main.rs:74-78](file://backend/src/main.rs#L74-L78)
 
 #### Volume Mounting Strategy
-- Database files are scanned recursively under /app/db/.
-- Recommended to mount a host directory or file to /app/db/ to persist SQLite databases across container restarts.
+Enhanced volume mounting with DB_DIR support:
 
-Examples:
-- Single file: -v sqlite.db:/app/db/sqlite.db
-- Directory: -v ./data:/app/db
+- Database files are scanned recursively under the configured DB_DIR path.
+- Supports subdirectory organization within the database directory.
+- Flexible volume mounting patterns for different use cases.
+
+Volume mounting examples:
+```bash
+# Single file with default DB_DIR
+docker run -v sqlite.db:/app/db/sqlite.db crablite
+
+# Directory with custom DB_DIR
+docker run -e DB_DIR=/data -v ./data:/data crablite
+
+# Subdirectory organization
+docker run -e DB_DIR=/app/db/rust -v ./rust/data:/app/db/rust crablite
+
+# Multiple database directories
+docker run -e DB_DIR=/data/dbs -v ./production:/data/dbs crablite
+```
+
+**Updated** Enhanced with DB_DIR environment variable support for flexible database directory configuration and subdirectory organization.
 
 **Section sources**
-- [README.md:70-73](file://README.md#L70-L73)
+- [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
+- [backend/src/handlers/connection.rs:20-59](file://backend/src/handlers/connection.rs#L20-L59)
+- [README.md:72](file://README.md#L72)
 
 #### Security Considerations
 - Authentication: Requests to API routes must include the x-api-key header matching the API_KEY environment variable.
-- Network exposure: Only port 3000 is exposed; ensure reverse proxy or firewall rules restrict access as needed.
+- Network exposure: Only the configured PORT is exposed; ensure reverse proxy or firewall rules restrict access as needed.
 - Secrets management: Use secrets managers or environment files to supply API_KEY and OpenAI keys securely.
 - Image hardening: The runtime image is minimal; keep it updated and avoid adding unnecessary packages.
+- Volume security: Ensure proper file permissions on mounted database directories to prevent unauthorized access.
 
 **Section sources**
-- [backend/src/main.rs:22-33](file://backend/src/main.rs#L22-L33)
+- [backend/src/main.rs:23-34](file://backend/src/main.rs#L23-L34)
 - [Dockerfile:37-55](file://Dockerfile#L37-L55)
 
 ### Docker Compose Guidance
-While no compose file exists in the repository, you can use the following patterns based on the documented usage:
 
-- Development:
-  - Map port 3000
-  - Mount a local directory to /app/db for persistent SQLite storage
-  - Set API_KEY and other environment variables as needed
+#### Development Configuration
+```yaml
+version: '3'
+services:
+  crablite:
+    image: wangyucode/crablite
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/db
+    environment:
+      - API_KEY=your-development-key
+      - DB_DIR=/app/db
+      - PORT=3000
+      - RUST_LOG=debug
+    restart: unless-stopped
+```
 
-- Production:
-  - Use named volumes for databases
-  - Restrict network access via reverse proxy
-  - Pin image tags to specific versions
+#### Production Configuration
+```yaml
+version: '3'
+services:
+  crablite:
+    image: wangyucode/crablite:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - db-data:/data/dbs
+    environment:
+      - API_KEY=${API_KEY}
+      - DB_DIR=/data/dbs
+      - PORT=8080
+      - RUST_LOG=info
+    restart: always
+    networks:
+      - crablite-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-Example references:
-- The README documents docker run and docker-compose examples showing port mapping and volume mounts.
+volumes:
+  db-data:
+    driver: local
 
-**Section sources**
-- [README.md:31-55](file://README.md#L31-L55)
+networks:
+  crablite-network:
+    driver: bridge
+```
+
+#### Advanced Configuration with Subdirectories
+```yaml
+version: '3'
+services:
+  crablite:
+    image: wangyucode/crablite
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./databases/rust:/app/db/rust
+      - ./databases/python:/app/db/python
+    environment:
+      - API_KEY=${API_KEY}
+      - DB_DIR=/app/db
+      - PORT=3000
+    restart: unless-stopped
+```
+
+**New Section** Comprehensive Docker Compose configurations for different deployment scenarios.
 
 ### CI/CD and Image Publishing
 GitHub Actions builds and pushes images to Docker Hub, tagging with latest and the version extracted from Cargo.toml. It also deploys to a server using docker compose.
@@ -222,25 +333,29 @@ The runtime depends on:
 - A statically linked Rust binary
 - Static frontend assets served by the same process
 - Optional OpenAI integration via environment variables
+- Configurable database directory via DB_DIR environment variable
+- Dynamic port binding via PORT environment variable
 
 ```mermaid
 graph LR
-App["Application Binary"] --> FS["Filesystem (/app/db)"]
+App["Application Binary"] --> FS["Filesystem (DB_DIR)"]
 App --> Env["Environment Variables"]
-App --> Net["Network (port 3000)"]
+App --> Net["Network (PORT)"]
 Env --> Auth["Auth Middleware"]
 Env --> Log["Logging (RUST_LOG)"]
 Env --> AI["OpenAI Integration (optional)"]
+Env --> DBPath["Database Path (DB_DIR)"]
+Env --> Port["Port Binding (PORT)"]
 ```
 
 **Diagram sources**
-- [backend/src/main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [backend/src/main.rs:39-45](file://backend/src/main.rs#L39-L45)
-- [backend/src/main.rs:67-72](file://backend/src/main.rs#L67-L72)
+- [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
+- [backend/src/main.rs:74-78](file://backend/src/main.rs#L74-L78)
+- [backend/src/state.rs:6-10](file://backend/src/state.rs#L6-L10)
 
 **Section sources**
 - [backend/Cargo.toml:6-19](file://backend/Cargo.toml#L6-L19)
-- [backend/src/main.rs:22-72](file://backend/src/main.rs#L22-L72)
+- [backend/src/main.rs:48-78](file://backend/src/main.rs#L48-L78)
 
 ## Performance Considerations
 - Use the prebuilt release binary with LTO and symbol stripping enabled for smaller size and faster startup.
@@ -249,34 +364,62 @@ Env --> AI["OpenAI Integration (optional)"]
 - Tune RUST_LOG to reduce overhead in production (e.g., info or warn).
 - Place the container behind a reverse proxy for TLS termination and connection pooling.
 - Scale horizontally by running multiple instances behind a load balancer if needed; share the same SQLite volume carefully or switch to a shared filesystem with appropriate locking.
+- Optimize DB_DIR placement for optimal I/O performance based on your storage infrastructure.
 
 [No sources needed since this section provides general guidance]
 
 ## Troubleshooting Guide
-- Container starts but UI does not load:
-  - Ensure the frontend build artifacts exist in /app/dist.
-  - Verify the binary is executable and the dist directory is copied correctly.
 
-- Cannot connect to database:
-  - Confirm the volume is mounted to /app/db and the SQLite file exists and is readable/writable by the container user.
-  - Check permissions on the host path.
+### Environment Variable Issues
+- **DB_DIR not working**:
+  - Verify the DB_DIR environment variable is set correctly
+  - Ensure the volume is mounted to the same path as DB_DIR
+  - Check that the directory exists and has proper permissions
+  - Example: `-e DB_DIR=/data -v ./data:/data`
 
-- Unauthorized errors:
-  - Provide the correct API_KEY and send the x-api-key header with requests.
+- **PORT conflicts**:
+  - Ensure host port matches the container PORT setting
+  - Check for port conflicts on the host machine
+  - Example: `-e PORT=8080 -p 8080:8080`
 
-- Logging too verbose:
-  - Adjust RUST_LOG to a less verbose level.
+### Volume Mounting Issues
+- **Database files not found**:
+  - Confirm the volume is mounted to the correct DB_DIR path
+  - Verify SQLite files exist and are readable/writable by the container user
+  - Check permissions on the host path
+  - For subdirectories: ensure the full path structure is maintained
 
-- Port conflicts:
-  - Ensure host port 3000 is free or map to a different host port.
+- **Permission errors**:
+  - Set proper ownership and permissions on the host directory
+  - Use `chmod 755` and `chown` commands on the host
+  - Consider using named volumes instead of bind mounts
 
-- OpenAI features not working:
-  - Set OPENAI_API_KEY and related variables as required.
+### Application Issues
+- **Container starts but UI does not load**:
+  - Ensure the frontend build artifacts exist in /app/dist
+  - Verify the binary is executable and the dist directory is copied correctly
+
+- **Cannot connect to database**:
+  - Confirm the volume is mounted to DB_DIR and the SQLite file exists
+  - Check database file permissions and ownership
+  - Verify WAL mode compatibility
+
+- **Unauthorized errors**:
+  - Provide the correct API_KEY and send the x-api-key header with requests
+
+- **Logging too verbose**:
+  - Adjust RUST_LOG to a less verbose level
+
+- **OpenAI features not working**:
+  - Set OPENAI_API_KEY and related variables as required
+
+**Updated** Added specific troubleshooting sections for DB_DIR and PORT configuration issues.
 
 **Section sources**
-- [README.md:70-83](file://README.md#L70-L83)
-- [backend/src/main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [backend/src/main.rs:39-45](file://backend/src/main.rs#L39-L45)
+- [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
+- [backend/src/main.rs:74-78](file://backend/src/main.rs#L74-L78)
+- [backend/src/handlers/connection.rs:20-59](file://backend/src/handlers/connection.rs#L20-L59)
+- [README.md:72-85](file://README.md#L72-L85)
 
 ## Conclusion
-CrabLite’s Docker setup delivers a highly efficient, minimal runtime image that bundles a static Rust backend and a Vite-built frontend. By leveraging multi-stage builds, static linking, and Alpine-based runtime, the image remains small and secure. Follow the environment variable and volume guidelines to configure authentication, logging, and persistence. Use the provided CI/CD workflow as a reference for automated builds and deployments, and apply the performance and security recommendations for robust production operations.
+CrabLite's Docker setup delivers a highly efficient, minimal runtime image that bundles a static Rust backend and a Vite-built frontend. The enhanced configuration system now supports flexible database directory management through DB_DIR and dynamic port binding via PORT environment variables. By leveraging multi-stage builds, static linking, and Alpine-based runtime, the image remains small and secure. The improved volume mounting strategy supports complex database organization patterns while maintaining simplicity. Follow the environment variable and volume guidelines to configure authentication, logging, database storage, and network binding. Use the provided Docker Compose configurations as templates for different deployment scenarios, and apply the performance and security recommendations for robust production operations.

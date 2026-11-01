@@ -29,14 +29,14 @@ jobs:
           # Replace version in Cargo.toml with 0.0.0
           sed -i 's/^version = ".*"/version = "0.0.0"/' backend/Cargo.toml
           # Replace version in backend/Cargo.lock with 0.0.0
-          sed -i '/name = "rust-sqlite-webui"/{n;s/^version = ".*"/version = "0.0.0"/;}' backend/Cargo.lock
+          sed -i '/name = "crablite"/{n;s/^version = ".*"/version = "0.0.0"/;}' backend/Cargo.lock
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: wangyucode/rust-sqlite-webui:latest,wangyucode/rust-sqlite-webui:${{ env.VERSION }}
+          tags: wangyucode/crablite:latest,wangyucode/crablite:${{ env.VERSION }}
           build-args: |
             APP_VERSION=${{ env.VERSION }}
           cache-from: type=gha
@@ -51,7 +51,7 @@ jobs:
           script: |
             cd /root/docker/
             docker compose ps
-            docker pull wangyucode/rust-sqlite-webui:latest
+            docker pull wangyucode/crablite:latest
             SQLITE_VERSION=${{ env.VERSION }} docker compose up -d --force-recreate --pull always sqlite
             sleep 10
             docker compose ps

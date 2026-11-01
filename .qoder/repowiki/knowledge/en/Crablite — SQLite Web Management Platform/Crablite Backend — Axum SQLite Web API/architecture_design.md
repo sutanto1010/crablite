@@ -1,5 +1,5 @@
 Single-binary Axum application (Rust 2024 edition) organized into three layers:
-- Entry point `src/main.rs` bootstraps tracing, loads `.env`, builds the `Router` with `/api/health`, nested `/api/*` routes, static `dist/` fallback, and a per-request `x-api-key` auth middleware.
+- Entry point `src/main.rs` bootstraps tracing, loads `.env`, builds the `Router` with `/api/health`, nested `/api/*` routes, static `dist/` fallback via `ServeDir::new("dist")`, and a per-request `x-api-key` auth middleware.
 - Shared mutable state lives in `state.rs` as a `Clone`able `AppState` wrapping `Arc<RwLock<Option<SqlitePool>>>`, giving handlers concurrent read access to the active connection pool.
 - Request handlers are split by concern under `handlers/`: `connection.rs` (connect/list_dbs/list_tables, WAL-enabled SqlitePool setup), `query.rs` (SELECT vs DML dispatch via `fetch_all`/`execute` with typed row serialization), `ai.rs` (SQL correction via reqwest), and `health.rs`.
 - Dependency direction is one-way: handlers → `state::AppState`; `main.rs` wires routes and re-exports handler functions through `handlers/mod.rs`. No ORM layer — raw sqlx queries against SQLite with PRAGMA introspection for column metadata.

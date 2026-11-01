@@ -147,9 +147,9 @@ const Navbar: Component = () => {
   return (
     <div class="navbar bg-base-100 shadow-lg gap-4 px-4 justify-between">
       <div class="navbar-start w-auto">
-        <img src="./logo.png" alt="SQLite WebUI" class="size-8 inline-block mr-2" />
+        <img src="./logo.png" alt="crablite" class="size-8 inline-block mr-2" />
         <h1 class="text-primary text-xl font-bold hidden sm:inline-block">
-          SQLite WebUI
+          crablite
           <Show when={appVersion()}>
             <span class="text-sm text-base-content/60 ml-2">v{appVersion()}</span>
           </Show>

@@ -1,0 +1,1 @@
+Two-service monorepo pairing a Rust/Axum SQLite management backend with a SolidJS web UI, unified by a multi-stage Dockerfile that serves the SPA through the API server.

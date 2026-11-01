@@ -1,12 +1,12 @@
 <div align="center">
   <img src="frontend/public/logo.png" width=256></img>
-  <p><strong>Rust SQLite WebUI - 一个极致轻量的 SQLite Web 管理工具</strong></p>
+  <p><strong>crablite - 一个极致轻量的 SQLite Web 管理工具</strong></p>
   
   [English](README.md) | 简体中文
   
 </div>
 
-# SQLite WebUI
+# crablite
 
 基于 Rust (Axum) 和 Solid.js 的 **极致轻量** SQLite Web 管理工具。
 
@@ -34,8 +34,8 @@ docker run -d \
   -p 3000:3000 \
   -v sqlite.db:/app/db/sqlite.db \
   -e API_KEY=your_secret_key \
-  --name sqlite-webui \
-  wangyucode/rust-sqlite-webui
+  --name crablite \
+  wangyucode/crablite
 ```
 
 ### Docker Compose
@@ -43,8 +43,8 @@ docker run -d \
 ```yaml
 version: '3'
 services:
-  sqlite-webui:
-    image: wangyucode/rust-sqlite-webui
+  crablite:
+    image: wangyucode/crablite
     ports:
       - "3000:3000"
     volumes:
@@ -63,7 +63,7 @@ services:
 | API_KEY | `your-super-secure-key` | 用于访问 WebUI 的认证密钥。|
 | DB_DIR | `db`（在 Docker 中为 `/app/db`） | 用于发现和存储 SQLite 数据库文件的目录。|
 | PORT | `3000` | 后端监听端口，必须是有效的 `u16` 端口号。|
-| RUST_LOG | `rust_sqlite_webui=debug,tower_http=debug` | 日志级别配置。|
+| RUST_LOG | `crablite=debug,tower_http=debug` | 日志级别配置。|
 | OPENAI_API_KEY | - | OpenAI API 密钥（AI 辅助功能必需）。|
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API 地址。|
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI 模型名称。|

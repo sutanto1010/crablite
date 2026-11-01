@@ -59,9 +59,9 @@ ARCHIVES=()
 
 build_and_package() {
   local target=$1
-  local binary_name=rust-sqlite-webui
+  local binary_name=crablite
   local binary_path
-  local package="rust-sqlite-webui-v${VERSION}-${target}"
+  local package="crablite-v${VERSION}-${target}"
   local package_dir="${WORK_DIR}/${package}"
   local archive="${WORK_DIR}/${package}.tar.gz"
 

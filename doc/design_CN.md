@@ -1,6 +1,6 @@
 [English](design.md) | [简体中文]
 
-# SQLite WebUI 设计方案
+# crablite 设计方案
 
 ## 1. 项目概述
 
@@ -38,7 +38,7 @@ graph TD
 
 ### 3.2 目录结构规划
 ```text
-rust-sqlite-webui/
+crablite/
 ├── backend/            # 后端源码 (Rust)
 │   ├── Cargo.toml
 │   └── src/
