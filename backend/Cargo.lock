@@ -357,7 +357,7 @@ dependencies = [
 
 [[package]]
 name = "crablite"
-version = "26.11.3"
+version = "26.11.4"
 dependencies = [
  "axum",
  "clap",
