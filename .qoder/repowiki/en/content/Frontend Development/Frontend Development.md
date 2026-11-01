@@ -15,7 +15,15 @@
 - [AuthModal.tsx](file://frontend/src/components/AuthModal.tsx)
 - [Navbar.tsx](file://frontend/src/components/Navbar.tsx)
 - [ThemeSwitch.tsx](file://frontend/src/components/ThemeSwitch.tsx)
+- [index.html](file://frontend/index.html)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated package configuration references to reflect 'crablite-frontend' package name
+- Updated page title and navbar branding documentation to show 'crablite' branding
+- Enhanced navbar branding section with version display functionality
+- Updated HTML document structure references
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,6 +39,8 @@
 
 ## Introduction
 This document provides comprehensive frontend development documentation for the Solid.js web interface. It covers component architecture (Editor, Toolbar, ResultTable, Sidebar, AuthModal), state management with Solid.js signals and stores, API client implementation, UI props/events/customization, responsive design patterns, theme switching, accessibility considerations, build configuration with Vite, styling with TailwindCSS/DaisyUI, and the development workflow including hot reload.
+
+The application is packaged as 'crablite-frontend' and features 'crablite' branding throughout the user interface, including dynamic version display in the navbar.
 
 ## Project Structure
 The frontend is a Solid.js application bootstrapped with Vite and styled using TailwindCSS and DaisyUI. The entry point renders the root App component, which composes the main layout and child components. State is centralized in a store module that exposes signals and functions to read/write shared state and orchestrate API calls.
@@ -71,7 +81,7 @@ Store --> Api["api.ts"]
 - ResultTable: Displays query results with row selection, select-all behavior, execution stats, and error alerts.
 - Sidebar: Lists tables, allows creating a new table template, selecting a table to query, and dropping a table with confirmation.
 - AuthModal: Prompts for API key when unauthorized; persists key to localStorage and reloads the app.
-- Navbar: Manages database file discovery, connection, creation, version display, and includes ThemeSwitch.
+- Navbar: Manages database file discovery, connection, creation, version display, and includes ThemeSwitch. Features 'crablite' branding with logo and dynamic version display.
 - ThemeSwitch: Toggles light/dark themes via data-theme attribute and persists preference.
 
 Key responsibilities and interactions are implemented through Solid.js signals and effects, with API calls routed through the api module.
@@ -305,6 +315,13 @@ Purpose:
 - Connect to a selected database or create a new one.
 - Display app version from health endpoint.
 - Integrate ThemeSwitch.
+- Feature 'crablite' branding with logo and dynamic version display.
+
+Updated Branding Features:
+- Displays 'crablite' as the application name with proper branding.
+- Shows version information fetched from the backend health endpoint.
+- Includes logo image integration for visual branding.
+- Responsive design with mobile-friendly navigation.
 
 State Integration:
 - Local signals for dbFiles, currentPath, inputPath, isLoading, errorMsg, showCreateDialog.
@@ -312,6 +329,7 @@ State Integration:
 
 Responsiveness:
 - Uses Tailwind utility classes for layout and spacing.
+- Mobile-responsive design with hidden text on small screens.
 
 ```mermaid
 flowchart TD
@@ -319,8 +337,8 @@ Start(["Navbar Mount"]) --> FetchFiles["fetchDbFiles()"]
 FetchFiles --> AutoLoad["autoLoad() if files exist"]
 AutoLoad --> Connect["connectAPI(path)"]
 Connect --> Success{"success?"}
-Success --> |Yes| Init["resetStore(), fetchTables()"]
-Success --> |No| Error["setErrorMsg(...)"]
+Success --> Init["resetStore(), fetchTables()"]
+Success --> Version["getHealth() for version display"]
 Init --> End(["Ready"])
 Error --> End
 ```
@@ -376,7 +394,7 @@ Store --> Api
 - [api.ts:1-116](file://frontend/src/lib/api.ts#L1-L116)
 
 ## Performance Considerations
-- Reactive updates: Use Solid’s fine-grained reactivity to minimize re-renders. Only update necessary signals.
+- Reactive updates: Use Solid's fine-grained reactivity to minimize re-renders. Only update necessary signals.
 - Query performance: Avoid running large DDL/DML without confirmation; consider pagination for large result sets.
 - Network requests: Debounce rapid actions like typing in the editor before triggering AI correction.
 - Memory usage: Clear query results when navigating away or switching databases to free memory.
@@ -391,14 +409,17 @@ Common issues and resolutions:
 - Schema introspection errors: PRAGMA table_info may fail if table does not exist; ensure currentTable is valid before generating statements.
 - Theme persistence: If theme does not persist, verify localStorage permissions and browser settings.
 - Hot reload not working: Ensure devtools plugin is enabled in vite.config.ts and that the dev server is running.
+- Package naming issues: Ensure package name is correctly set to 'crablite-frontend' in package.json.
+- Branding display: Verify logo.png exists and navbar displays 'crablite' branding correctly.
 
 **Section sources**
 - [api.ts:17-23](file://frontend/src/lib/api.ts#L17-L23)
 - [vite.config.ts:10-14](file://frontend/vite.config.ts#L10-L14)
 - [AuthModal.tsx:7-16](file://frontend/src/components/AuthModal.tsx#L7-L16)
+- [package.json:1-23](file://frontend/package.json#L1-L23)
 
 ## Conclusion
-The frontend is a well-structured Solid.js application leveraging signals for state management, a clear separation of concerns between components and store/API layers, and modern tooling with Vite, TailwindCSS, and DaisyUI. The architecture supports extensibility, responsive design, and theme switching while maintaining accessibility best practices.
+The frontend is a well-structured Solid.js application leveraging signals for state management, a clear separation of concerns between components and store/API layers, and modern tooling with Vite, TailwindCSS, and DaisyUI. The architecture supports extensibility, responsive design, and theme switching while maintaining accessibility best practices. The application is properly branded as 'crablite' with professional packaging as 'crablite-frontend'.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -485,3 +506,22 @@ References:
 **Section sources**
 - [package.json:6-9](file://frontend/package.json#L6-L9)
 - [vite.config.ts:4-8](file://frontend/vite.config.ts#L4-L8)
+
+### Application Branding and Packaging
+The application is professionally branded and packaged:
+
+- **Package Name**: 'crablite-frontend' for npm/pnpm registry
+- **Page Title**: 'crablite' displayed in browser tab
+- **Navbar Branding**: Professional 'crablite' branding with logo and version display
+- **Logo Integration**: Custom logo.png for visual identity
+
+Key branding elements:
+- HTML title tag: `<title>crablite</title>`
+- Navbar displays 'crablite' with version suffix
+- Logo image integration in navbar
+- Consistent branding across all UI elements
+
+**Section sources**
+- [package.json:1-23](file://frontend/package.json#L1-L23)
+- [index.html:1-16](file://frontend/index.html#L1-L16)
+- [Navbar.tsx:147-157](file://frontend/src/components/Navbar.tsx#L147-L157)

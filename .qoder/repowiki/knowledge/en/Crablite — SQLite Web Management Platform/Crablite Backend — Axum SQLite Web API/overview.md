@@ -1,1 +1,0 @@
-Axum-based Rust HTTP server exposing SQLite database management, query execution, and AI-assisted SQL correction endpoints behind an API-key middleware.

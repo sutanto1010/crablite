@@ -2,3 +2,4 @@
 - Handler functions return `impl IntoResponse`, using `(StatusCode, &str).into_response()` for errors and `Json(...)` for structured JSON payloads.
 - Request bodies are deserialized with `serde::Deserialize` structs annotated with `#[derive(Deserialize)]` and optional fields via `#[serde(default)]`.
 - Errors are logged through `tracing::error!` / `tracing::warn!` before returning an HTTP status, keeping logging and response construction co-located in each handler.
+- SQL queries use raw `sqlx::query` / `sqlx::query_scalar` / `sqlx::query_as` with PRAGMA statements (`journal_mode`, `table_info`, `foreign_key_list`) instead of an ORM.

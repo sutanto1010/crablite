@@ -1,0 +1,1 @@
+SolidJS single-page application providing SQL editing, table browsing, query execution, and AI-assisted SQL correction against a backend API.

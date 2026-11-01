@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: backend
-title: Crablite Backend — Axum SQLite Web API
+title: Crablite Axum HTTP Server
 scope:
     - backend/
 source_files: []

@@ -12,11 +12,12 @@
 
 ## Update Summary
 **Changes Made**
-- Updated cross-compilation section to document comprehensive multi-platform support (x86_64-unknown-linux-musl, aarch64-unknown-linux-musl, x86_64-pc-windows-gnu, aarch64-pc-windows-gnullvm)
+- Updated binary naming convention from 'rust-sqlite-webui' to 'crablite' throughout release process documentation
+- Enhanced cross-compilation section to document comprehensive multi-platform support (x86_64-unknown-linux-musl, aarch64-unknown-linux-musl, x86_64-pc-windows-gnu, aarch64-pc-windows-gnullvm)
 - Enhanced release automation documentation with new automated GitHub release handling
 - Added detailed cross-compilation workflow and target platform specifications
-- Updated artifact management section to reflect multi-platform archive generation
-- Enhanced troubleshooting guide with cross-compilation specific issues
+- Updated artifact management section to reflect multi-platform archive generation with consistent 'crablite' binary naming
+- Enhanced troubleshooting guide with cross-compilation specific issues and binary naming references
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,21 +32,21 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document defines the release process for CrabLite, covering automated CI/CD workflows, version management, artifact creation and distribution, testing and security checks, deployment approvals, manual emergency procedures, rollback strategies, and post-release monitoring. It is intended for maintainers and operators who publish releases and deploy images to production. The process now includes comprehensive cross-compilation support for multiple platforms and automated GitHub release handling.
+This document defines the release process for CrabLite, covering automated CI/CD workflows, version management, artifact creation and distribution, testing and security checks, deployment approvals, manual emergency procedures, rollback strategies, and post-release monitoring. It is intended for maintainers and operators who publish releases and deploy images to production. The process now includes comprehensive cross-compilation support for multiple platforms and automated GitHub release handling, with consistent 'crablite' binary naming across all artifacts.
 
 ## Project Structure
 CrabLite consists of:
-- A Rust backend (Axum-based server) that serves a SQLite WebUI and API endpoints.
+- A Rust backend (Axum-based server) that serves a SQLite WebUI and API endpoints, producing a 'crablite' binary.
 - A Solid.js frontend built with Vite and TailwindCSS/DaisyUI.
 - A multi-stage Dockerfile that builds both frontend assets and the Rust binary into a small Alpine runtime image.
 - GitHub Actions workflow for building and publishing Docker images on push to master or via manual dispatch.
-- An enhanced local release script with comprehensive cross-compilation support for multiple platforms and automated GitHub release handling.
+- An enhanced local release script with comprehensive cross-compilation support for multiple platforms and automated GitHub release handling, consistently using the 'crablite' binary name.
 
 ```mermaid
 graph TB
 subgraph "Source"
 FE["Frontend<br/>Solid.js + Vite"]
-BE["Backend<br/>Rust + Axum"]
+BE["Backend<br/>Rust + Axum<br/>(crablite binary)"]
 end
 subgraph "CI/CD"
 GHActions["GitHub Actions<br/>docker-publish.yml"]
@@ -53,7 +54,7 @@ Buildx["Docker Buildx"]
 Registry["Container Registry<br/>Docker Hub"]
 end
 subgraph "Local Release"
-ReleaseScript["Enhanced release.sh<br/>Cross-compilation support<br/>Automated GitHub releases"]
+ReleaseScript["Enhanced release.sh<br/>Cross-compilation support<br/>Automated GitHub releases<br/>(crablite binary)"]
 end
 subgraph "Multi-Platform Targets"
 LinuxX64["Linux x86_64<br/>musl"]
@@ -65,15 +66,15 @@ subgraph "Runtime"
 Server["Production Server"]
 end
 FE --> |Builds static assets| Dockerfile
-BE --> |Compiles binary| Dockerfile
+BE --> |Compiles crablite binary| Dockerfile
 Dockerfile --> |Multi-stage build| Buildx
 Buildx --> |Pushes images| Registry
 GHActions --> |Triggers| Buildx
 Registry --> |Pull latest| Server
-ReleaseScript --> |Cross-compiles| LinuxX64
-ReleaseScript --> |Cross-compiles| LinuxARM
-ReleaseScript --> |Cross-compiles| WinX64
-ReleaseScript --> |Cross-compiles| WinARM
+ReleaseScript --> |Cross-compiles crablite| LinuxX64
+ReleaseScript --> |Cross-compiles crablite| LinuxARM
+ReleaseScript --> |Cross-compiles crablite| WinX64
+ReleaseScript --> |Cross-compiles crablite| WinARM
 ReleaseScript --> |Publishes releases| GH
 ```
 
@@ -88,19 +89,19 @@ ReleaseScript --> |Publishes releases| GH
 
 ## Core Components
 - Automated CI/CD pipeline: Builds and pushes Docker images to Docker Hub when code is pushed to master or when manually dispatched.
-- Multi-stage Docker build: Compiles frontend assets with pnpm/Vite and compiles the Rust binary with cargo, then assembles a minimal runtime image.
+- Multi-stage Docker build: Compiles frontend assets with pnpm/Vite and compiles the Rust binary with cargo, then assembles a minimal runtime image containing the 'crablite' binary.
 - Versioning: The application version is defined in the Rust package manifest and used by CI and release scripts.
-- Enhanced local release automation: A bash script with comprehensive cross-compilation support for multiple platforms (Linux x86_64/aarch64, Windows x86_64/aarch64), automated GitHub repository detection, improved pre-existing remote tag handling, descriptive error messages, and automated GitHub release publishing validates prerequisites, builds artifacts, creates annotated git tags, and publishes GitHub Releases with auto-generated notes.
+- Enhanced local release automation: A bash script with comprehensive cross-compilation support for multiple platforms (Linux x86_64/aarch64, Windows x86_64/aarch64), automated GitHub repository detection, improved pre-existing remote tag handling, descriptive error messages, and automated GitHub release publishing validates prerequisites, builds artifacts with consistent 'crablite' binary naming, creates annotated git tags, and publishes GitHub Releases with auto-generated notes.
 
 Key responsibilities:
 - Frontend build: pnpm install --frozen-lockfile and vite build produce static assets under frontend/dist.
-- Backend build: cargo build --release produces a stripped, optimized binary.
-- Cross-compilation: Supports native and cross-compilation targets using zig and cargo-zigbuild.
+- Backend build: cargo build --release produces a stripped, optimized 'crablite' binary.
+- Cross-compilation: Supports native and cross-compilation targets using zig and cargo-zigbuild, consistently producing 'crablite' binaries.
 - Image tagging: CI extracts the version from the Rust manifest and tags images with both semantic version and latest.
 - Deployment: CI pulls the latest image and recreates the service using docker compose on the target server.
 - Repository detection: Enhanced parsing of GitHub remote URLs to automatically determine the repository path.
 - Tag conflict resolution: Improved handling of pre-existing remote tags with resumption capabilities.
-- Multi-platform packaging: Generates platform-specific archives (.tar.gz for Unix-like systems, .zip for Windows).
+- Multi-platform packaging: Generates platform-specific archives (.tar.gz for Unix-like systems, .zip for Windows) containing the 'crablite' binary.
 
 **Section sources**
 - [docker-publish.yml:24-43](file://.github/workflows/docker-publish.yml#L24-L43)
@@ -111,7 +112,7 @@ Key responsibilities:
 - [release.sh:108-116](file://release.sh#L108-L116)
 
 ## Architecture Overview
-The release architecture integrates source control, containerization, registry, and deployment with enhanced local automation supporting multiple platforms:
+The release architecture integrates source control, containerization, registry, and deployment with enhanced local automation supporting multiple platforms and consistent 'crablite' binary naming:
 
 ```mermaid
 sequenceDiagram
@@ -125,12 +126,12 @@ participant Local as "Enhanced Release Script"
 participant Targets as "Multi-Platform Targets"
 Dev->>Local : Run ./release.sh
 Local->>GH : Parse remote URL & detect repo
-Local->>Targets : Cross-compile for 4 platforms
+Local->>Targets : Cross-compile crablite for 4 platforms
 Local->>GH : Check existing tags & handle conflicts
 Local->>GH : Create/publish GitHub Release
 Dev->>GH : Push to master
 GH->>Actions : Trigger workflow
-Actions->>Builder : Build multi-stage image
+Actions->>Builder : Build multi-stage image (crablite)
 Builder-->>Reg : Push tagged images (latest, vX.Y.Z)
 Actions->>Prod : SSH and run docker compose up
 Prod-->>Dev : Service running with new image
@@ -145,10 +146,35 @@ Prod-->>Dev : Service running with new image
 ## Detailed Component Analysis
 
 ### Enhanced Local Release Script with Cross-Compilation Support
-The release script has been comprehensively overhauled to support cross-compilation for multiple platforms and automated GitHub release handling:
+The release script has been comprehensively overhauled to support cross-compilation for multiple platforms and automated GitHub release handling, with consistent 'crablite' binary naming:
+
+#### Binary Naming Convention
+The script now uses 'crablite' as the consistent binary name across all platforms:
+
+```mermaid
+flowchart TD
+Start(["Start"]) --> DetectHost["Detect host target"]
+DetectHost --> DefineTargets["Define cross-compilation targets"]
+DefineTargets --> HostTarget{"Is target host?"}
+HostTarget --> |Yes| NativeBuild["Native cargo build -> crablite"]
+HostTarget --> |No| CrossBuild["zigbuild cross-compilation -> crablite"]
+CrossBuild --> AddTarget["rustup target add"]
+AddTarget --> ZigBuild["cargo zigbuild -> crablite"]
+NativeBuild --> Package["Package crablite binary"]
+ZigBuild --> Package
+Package --> PlatformCheck{"Windows target?"}
+PlatformCheck --> |Yes| ZipArchive["Create .zip archive with crablite.exe"]
+PlatformCheck --> |No| TarArchive["Create .tar.gz archive with crablite"]
+ZipArchive --> Upload["Upload to GitHub Release"]
+TarArchive --> Upload
+```
+
+**Diagram sources**
+- [release.sh:49-55](file://release.sh#L49-L55)
+- [release.sh:60-99](file://release.sh#L60-L99)
 
 #### Cross-Compilation Target Support
-The script now supports four target platforms with automatic platform detection and appropriate toolchain selection:
+The script now supports four target platforms with automatic platform detection and appropriate toolchain selection, consistently producing 'crablite' binaries:
 
 ```mermaid
 flowchart TD
@@ -173,10 +199,10 @@ TarArchive --> Upload
 - [release.sh:60-99](file://release.sh#L60-L99)
 
 #### Supported Target Platforms
-- **x86_64-unknown-linux-musl**: Static Linux binary for x86_64 systems
-- **aarch64-unknown-linux-musl**: Static Linux binary for ARM64 systems  
-- **x86_64-pc-windows-gnu**: Windows binary for x86_64 systems
-- **aarch64-pc-windows-gnullvm**: Windows binary for ARM64 systems
+- **x86_64-unknown-linux-musl**: Static Linux binary for x86_64 systems (crablite)
+- **aarch64-unknown-linux-musl**: Static Linux binary for ARM64 systems (crablite)  
+- **x86_64-pc-windows-gnu**: Windows binary for x86_64 systems (crablite.exe)
+- **aarch64-pc-windows-gnullvm**: Windows binary for ARM64 systems (crablite.exe)
 
 #### GitHub Repository Detection
 The script uses sophisticated remote URL parsing to automatically detect the GitHub repository:
@@ -234,7 +260,7 @@ All error conditions now provide clear, actionable feedback:
 - Authentication status verification before proceeding
 - Cross-compilation target validation
 
-**Updated** Comprehensive cross-compilation support, automated GitHub release handling, enhanced repository detection, tag handling, and error messaging
+**Updated** Comprehensive cross-compilation support, automated GitHub release handling, enhanced repository detection, tag handling, error messaging, and consistent 'crablite' binary naming
 
 **Section sources**
 - [release.sh:8-13](file://release.sh#L8-L13)
@@ -263,7 +289,7 @@ Checkout --> Buildx["Setup Docker Buildx"]
 Buildx --> Login["Login to Docker Hub"]
 Login --> Extract["Extract version from Cargo.toml"]
 Extract --> Replace["Replace version with placeholder"]
-Replace --> Build["Build and push Docker image"]
+Replace --> Build["Build and push Docker image (crablite)"]
 Build --> Deploy["Deploy to server via SSH"]
 Deploy --> End(["Workflow End"])
 ```
@@ -283,8 +309,8 @@ Operational details:
 ### Multi-stage Docker Build
 The Dockerfile orchestrates three stages:
 - Frontend builder: Installs pnpm globally, installs dependencies with frozen lockfile, copies frontend source, and runs the build to produce static assets.
-- Backend builder: Installs musl-dev for static linking, creates a dummy cargo project to cache dependencies, builds dependencies, copies actual source, touches main.rs to force rebuild, and builds the release binary with APP_VERSION injected via build arg.
-- Runtime: Minimal Alpine image installing only runtime dependencies, copying the compiled binary and frontend assets, exposing port 3000, and setting environment variables.
+- Backend builder: Installs musl-dev for static linking, creates a dummy cargo project to cache dependencies, builds dependencies, copies actual source, touches main.rs to force rebuild, and builds the release binary with APP_VERSION injected via build arg, producing the 'crablite' binary.
+- Runtime: Minimal Alpine image installing only runtime dependencies, copying the compiled 'crablite' binary and frontend assets, exposing port 3000, and setting environment variables.
 
 ```mermaid
 flowchart TD
@@ -292,9 +318,9 @@ FStart["Stage 1: Frontend Builder"] --> FInstall["pnpm install --frozen-lockfile
 FInstall --> FBuild["pnpm build -> dist"]
 FBuild --> BStart["Stage 2: Backend Builder"]
 BStart --> BCargo["cargo build deps + touch main.rs"]
-BCargo --> BRelease["cargo build --release with APP_VERSION"]
+BCargo --> BRelease["cargo build --release with APP_VERSION -> crablite"]
 BRelease --> RStart["Stage 3: Runtime"]
-RStart --> CopyBin["Copy binary"]
+RStart --> CopyBin["Copy crablite binary"]
 CopyBin --> CopyFE["Copy frontend dist"]
 CopyFE --> Env["Set ENV vars and EXPOSE 3000"]
 Env --> CMD["CMD ./crablite"]
@@ -345,7 +371,7 @@ Before initiating a release, ensure the following:
 - Version bumped: Update the version in the Rust manifest and update lockfiles accordingly.
 - Tests pass: Run frontend build and backend compilation locally to validate.
 - Security scanning: Integrate dependency vulnerability scans (e.g., cargo audit, npm/pnpm audits) and container image scanning prior to pushing images.
-- Artifact validation: Verify generated archives contain the correct binaries and frontend assets for all target platforms.
+- Artifact validation: Verify generated archives contain the correct 'crablite' binaries and frontend assets for all target platforms.
 - Tagging: Ensure no local or remote tag conflicts exist; script handles pre-existing tags gracefully.
 - Publishing: Enhanced script automatically detects GitHub repository and manages tag lifecycle.
 - Deployment approval: Confirm deployment to production is approved per team policy.
@@ -369,8 +395,8 @@ Enhanced checklist mapping to implementation:
 
 ### Testing Requirements
 - Frontend: Validate that pnpm build completes successfully and produces assets under frontend/dist.
-- Backend: Validate that cargo build --release completes without errors and produces the expected binary.
-- Cross-compilation: Test builds for all target platforms to ensure compatibility.
+- Backend: Validate that cargo build --release completes without errors and produces the expected 'crablite' binary.
+- Cross-compilation: Test builds for all target platforms to ensure compatibility and consistent 'crablite' binary naming.
 - Integration: Optionally run smoke tests against a local instance serving the built frontend and backend.
 
 References:
@@ -401,10 +427,10 @@ Current integration points:
 - [docker-publish.yml:45-58](file://.github/workflows/docker-publish.yml#L45-L58)
 
 ### Artifact Validation
-- Archive contents: Ensure each archive includes the compiled binary and the frontend dist directory for its target platform.
-- Binary properties: Verify binaries are stripped and optimized according to the release profile.
+- Archive contents: Ensure each archive includes the compiled 'crablite' binary and the frontend dist directory for its target platform.
+- Binary properties: Verify 'crablite' binaries are stripped and optimized according to the release profile.
 - Asset integrity: Validate that frontend assets are present and correctly served by the runtime image.
-- Platform compatibility: Verify binaries work on their intended target platforms.
+- Platform compatibility: Verify 'crablite' binaries work on their intended target platforms.
 
 Validation references:
 - Archive packaging: [release.sh:85-99](file://release.sh#L85-L99)
@@ -434,14 +460,14 @@ To perform a manual release with the enhanced script:
 - Install required tools: cargo, cargo-zigbuild, gh CLI, git, pnpm, rustc, rustup, tar, zip, zig.
 - Ensure the working tree is clean.
 - Update the version in the Rust manifest and update lockfiles.
-- Run the enhanced release script to build, cross-compile for multiple platforms, tag, and publish with improved error handling.
+- Run the enhanced release script to build, cross-compile for multiple platforms, tag, and publish with improved error handling and consistent 'crablite' binary naming.
 
 Enhanced script behavior:
 - Validates commands and clean state with descriptive error messages
 - Reads version and ensures tag uniqueness with resumption support
 - Automatically detects GitHub repository from remote URL
 - Authenticates with GitHub
-- Builds frontend and backend for multiple targets (native + cross-compilation)
+- Builds frontend and backend for multiple targets (native + cross-compilation) producing 'crablite' binaries
 - Packages archives with proper naming conventions for each platform
 - Creates and pushes annotated tag with conflict resolution
 - Publishes GitHub Release with auto-generated notes
@@ -456,7 +482,7 @@ Reference:
 For urgent hotfixes:
 - Create a dedicated hotfix branch from the last stable tag.
 - Apply minimal changes and bump the patch version.
-- Run the enhanced release script to publish the fix quickly with improved error handling and cross-compilation support.
+- Run the enhanced release script to publish the fix quickly with improved error handling and cross-compilation support, ensuring consistent 'crablite' binary naming.
 - Ensure CI deploys the fix immediately after merging to master or via manual workflow dispatch.
 
 Considerations:
@@ -497,10 +523,11 @@ Environment variables relevant to logging:
 
 ### Release Artifacts Management
 - Native binaries:
-  - Archives include the compiled binary and frontend assets for each target platform.
+  - Archives include the compiled 'crablite' binary and frontend assets for each target platform.
   - Naming convention: crablite-v<VERSION>-<TARGET>.tar.gz (or .zip for Windows targets).
   - Multi-platform support: Linux x86_64/aarch64, Windows x86_64/aarch64.
   - Automatic platform detection determines archive format (.tar.gz vs .zip).
+  - Consistent 'crablite' binary naming across all platforms.
 - Distribution channels:
   - GitHub Releases for native archives across all supported platforms.
   - Docker Hub for container images.
@@ -520,7 +547,7 @@ Enhanced references:
 ## Dependency Analysis
 The release process depends on:
 - Frontend toolchain: Node.js and pnpm for building static assets.
-- Backend toolchain: Rust, cargo, and cross-compilation tools (zig, cargo-zigbuild) for compiling binaries.
+- Backend toolchain: Rust, cargo, and cross-compilation tools (zig, cargo-zigbuild) for compiling 'crablite' binaries.
 - Container toolchain: Docker and Buildx for building and pushing images.
 - Git and GitHub CLI for tagging and publishing releases.
 - Archive tools: tar and zip for creating platform-specific archives.
@@ -528,7 +555,7 @@ The release process depends on:
 ```mermaid
 graph LR
 Pnpm["pnpm"] --> FEAssets["Frontend Assets"]
-Cargo["cargo/zigbuild"] --> Binary["Multi-platform Binaries"]
+Cargo["cargo/zigbuild"] --> Binary["Multi-platform crablite Binaries"]
 Docker["Docker Buildx"] --> Image["Container Image"]
 GHCLI["gh CLI"] --> Release["GitHub Release"]
 Git["git"] --> Tag["Annotated Tag"]
@@ -551,7 +578,7 @@ Archive["tar/zip"] --> Artifacts["Platform Archives"]
 
 ## Performance Considerations
 - Frontend build caching: Use pnpm's lockfile and CI caching to speed up builds.
-- Backend optimization: The release profile enables stripping symbols, LTO, and single codegen unit for smaller and faster binaries.
+- Backend optimization: The release profile enables stripping symbols, LTO, and single codegen unit for smaller and faster 'crablite' binaries.
 - Image size: Multi-stage builds and minimal Alpine runtime keep images small.
 - Cross-compilation: Efficient multi-platform builds using zig for faster compilation times.
 - Parallel builds: Native and cross-compilation builds are executed sequentially but efficiently.
@@ -582,6 +609,7 @@ Common issues and resolutions with enhanced error handling and cross-compilation
 - Docker login failures: Verify Docker Hub token secret is configured.
 - Deployment failures: Check SSH credentials and docker compose configuration on the server.
 - Platform-specific issues: Verify target platform compatibility and toolchain availability.
+- Binary naming issues: Ensure 'crablite' binary name is consistent across all platforms and artifacts.
 
 Enhanced validation checks:
 - Tool presence validation: [release.sh:8-13](file://release.sh#L8-L13)
@@ -604,7 +632,7 @@ Enhanced validation checks:
 - [docker-publish.yml:18-58](file://.github/workflows/docker-publish.yml#L18-L58)
 
 ## Conclusion
-CrabLite's release process combines automated CI/CD with robust enhanced local scripting to ensure consistent, secure, and efficient delivery of updates. The comprehensive cross-compilation support for multiple platforms, improved repository detection, better error handling, and enhanced tag conflict resolution make the release process more reliable and user-friendly. By adhering to the outlined checklist, versioning practices, and operational guidelines, maintainers can confidently publish releases, manage multi-platform artifacts, and deploy to production while maintaining high reliability and performance.
+CrabLite's release process combines automated CI/CD with robust enhanced local scripting to ensure consistent, secure, and efficient delivery of updates. The comprehensive cross-compilation support for multiple platforms, improved repository detection, better error handling, enhanced tag conflict resolution, and consistent 'crablite' binary naming make the release process more reliable and user-friendly. By adhering to the outlined checklist, versioning practices, and operational guidelines, maintainers can confidently publish releases, manage multi-platform artifacts, and deploy to production while maintaining high reliability and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -626,6 +654,11 @@ Configuration references:
 
 ### Enhanced Release Script Features
 The enhanced release script provides several improvements over the original implementation:
+
+#### Binary Naming Consistency
+- Consistent 'crablite' binary name across all platforms and artifacts
+- Automatic handling of .exe extension for Windows targets
+- Proper binary path resolution for both native and cross-compilation builds
 
 #### Cross-Compilation Support
 - Automatic detection of host target platform

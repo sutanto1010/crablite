@@ -17,6 +17,13 @@
 - [doc/design.md](file://doc/design.md)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated project identity and branding from 'rust-sqlite-webui' to 'crablite' throughout all sections
+- Enhanced project description to reflect the complete rebranding
+- Updated all references to use consistent 'crablite' terminology
+- Maintained all technical specifications and architectural details while ensuring brand consistency
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -71,7 +78,7 @@ BE_Handlers --> DB
 **Diagram sources**
 - [frontend/src/App.tsx:1-29](file://frontend/src/App.tsx#L1-L29)
 - [frontend/src/lib/api.ts:1-116](file://frontend/src/lib/api.ts#L1-L116)
-- [backend/src/main.rs:1-74](file://backend/src/main.rs#L1-L74)
+- [backend/src/main.rs:1-84](file://backend/src/main.rs#L1-L84)
 - [backend/src/state.rs:1-9](file://backend/src/state.rs#L1-L9)
 - [backend/src/handlers/mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
 
@@ -80,7 +87,7 @@ BE_Handlers --> DB
 - [Dockerfile:1-56](file://Dockerfile#L1-L56)
 
 ## Core Components
-CrabLite’s core value proposition centers on three pillars:
+CrabLite's core value proposition centers on three pillars:
 - Extreme lightweight footprint: ~10MB Docker image and ~1MB runtime memory usage
 - High performance: Fast startup and low overhead using Rust and Tokio
 - AI-powered SQL assistance: Natural language to SQL conversion and SQL correction via OpenAI-compatible APIs
@@ -164,11 +171,11 @@ Listen --> End(["Run server"])
 ```
 
 **Diagram sources**
-- [backend/src/main.rs:35-73](file://backend/src/main.rs#L35-L73)
+- [backend/src/main.rs:35-83](file://backend/src/main.rs#L35-L83)
 - [backend/src/state.rs:5-8](file://backend/src/state.rs#L5-L8)
 
 **Section sources**
-- [backend/src/main.rs:1-74](file://backend/src/main.rs#L1-L74)
+- [backend/src/main.rs:1-84](file://backend/src/main.rs#L1-L84)
 - [backend/src/state.rs:1-9](file://backend/src/state.rs#L1-L9)
 
 ### Connection Management

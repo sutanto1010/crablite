@@ -1,0 +1,1 @@
+Axum 0.8 + tokio full runtime; sqlx 0.8 with `runtime-tokio-rustls` and `sqlite` features (WAL journal mode, 30s `busy_timeout`); tower-http for CORS/fs/trace; tracing + tracing-subscriber with `env-filter`; dotenv for config; clap CLI derive; reqwest for outbound OpenAI-compatible chat completions. Release profile strips symbols, enables LTO and single codegen unit.

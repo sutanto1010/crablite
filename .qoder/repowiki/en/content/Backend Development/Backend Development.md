@@ -14,11 +14,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated Rust edition from 2026 to 2024 in Cargo.toml
-- Bumped version from previous release to 26.11.2
-- Enhanced database directory handling with `create_dir_all` for nested structures
-- Improved error handling for directory creation operations
-- Added configurable database directory path via DB_DIR environment variable
+- Updated backend package name to 'crablite' and Rust edition to 2024
+- Enhanced logging configuration with project-specific tracing filters
+- Updated version to 26.11.3 with improved database directory handling
+- Added comprehensive error handling for directory creation operations
+- Implemented configurable database directory path via DB_DIR environment variable
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -32,11 +32,11 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive backend development documentation for the Rust-based server application. It explains the entry point, state management using a shared database pool protected by async read-write locks, handler organization, and the database layer including connection lifecycle, WAL mode configuration, and recursive file discovery with security validation. It also documents API endpoints for connection management, query execution, and AI integration, along with authentication middleware, error handling strategies, logging configuration, and performance considerations such as connection pooling and async I/O patterns.
+This document provides comprehensive backend development documentation for the crablite Rust-based server application. It explains the entry point, state management using a shared database pool protected by async read-write locks, handler organization, and the database layer including connection lifecycle, WAL mode configuration, and recursive file discovery with security validation. It also documents API endpoints for connection management, query execution, and AI integration, along with authentication middleware, error handling strategies, logging configuration, and performance considerations such as connection pooling and async I/O patterns.
 
 ## Project Structure
 The backend is an Axum-based HTTP service that:
-- Initializes tracing and environment variables
+- Initializes tracing and environment variables with project-specific logging configuration
 - Shares a database pool across handlers via application state
 - Exposes REST endpoints under /api
 - Serves static frontend assets from dist
@@ -70,17 +70,17 @@ H --> J["ServeDir::new('dist')<br/>Static files"]
 - Handlers: Organized by feature (connection, query, ai, health).
 - Database layer: Uses sqlx with Tokio runtime, WAL journal mode, busy timeout, and pool-based connections.
 - Authentication: Header-based API key middleware protecting API routes.
-- Logging: Tracing subscriber configured via environment variable RUST_LOG.
+- Logging: Tracing subscriber configured via environment variable RUST_LOG with project-specific filtering.
 
 Key responsibilities:
-- main.rs: Bootstraps tracing, constructs AppState with configurable db_dir, registers routes, applies middleware, binds TCP listener.
+- main.rs: Bootstraps tracing with crablite-specific logging, constructs AppState with configurable db_dir, registers routes, applies middleware, binds TCP listener.
 - state.rs: Defines AppState with Arc<RwLock<Option<SqlitePool>>> and PathBuf for database directory.
 - handlers/connection.rs: Lists .db files recursively, connects to a SQLite database, verifies WAL mode, lists tables.
 - handlers/query.rs: Executes SQL, serializes rows into JSON, measures execution time.
 - handlers/ai.rs: Calls OpenAI-compatible API to correct or generate SQL based on table schema and sample row.
 - handlers/health.rs: Returns status and version info.
 
-**Updated** Enhanced database directory handling with automatic nested directory creation using `create_dir_all`.
+**Updated** Enhanced database directory handling with automatic nested directory creation using `create_dir_all` and improved error handling.
 
 **Section sources**
 - [main.rs:36-83](file://backend/src/main.rs#L36-L83)
@@ -128,7 +128,7 @@ Axum-->>Client : 200 OK
 
 ### Entry Point and Routing (main.rs)
 Responsibilities:
-- Initialize dotenv and tracing subscriber with EnvFilter and fmt layer.
+- Initialize dotenv and tracing subscriber with EnvFilter and fmt layer using crablite-specific logging configuration.
 - Create AppState with Arc<RwLock<Option<SqlitePool>>> initialized to None and configurable db_dir.
 - Register API routes under /api with auth middleware.
 - Serve static frontend assets from dist.
@@ -139,7 +139,8 @@ Authentication middleware:
 - Returns 401 Unauthorized if mismatch.
 
 Logging:
-- Configured via RUST_LOG env var; defaults include debug logs for app and tower_http.
+- Configured via RUST_LOG env var with default filter "crablite=debug,tower_http=debug".
+- Uses tracing-subscriber with project-specific module filtering.
 
 Database Directory Configuration:
 - Uses DB_DIR environment variable to configure database storage location.
@@ -149,7 +150,7 @@ Database Directory Configuration:
 ```mermaid
 flowchart TD
 Start(["Process start"]) --> Dotenv["Load .env"]
-Dotenv --> InitTracing["Init tracing subscriber"]
+Dotenv --> InitTracing["Init tracing subscriber with crablite filter"]
 InitTracing --> GetDBDir["Get DB_DIR env var or default 'db'"]
 GetDBDir --> BuildState["Create AppState(db=None, db_dir)"]
 BuildState --> BuildRouter["Build Router with /api routes"]
@@ -162,7 +163,7 @@ BindPort --> RunServer["Start axum::serve"]
 **Diagram sources**
 - [main.rs:36-83](file://backend/src/main.rs#L36-L83)
 
-**Updated** Added DB_DIR environment variable support for configurable database directory paths.
+**Updated** Added DB_DIR environment variable support for configurable database directory paths and enhanced logging configuration with project-specific filters.
 
 **Section sources**
 - [main.rs:1-84](file://backend/src/main.rs#L1-L84)
@@ -331,11 +332,11 @@ External dependencies and their roles:
 - sqlx: Database toolkit with SQLite support and Tokio runtime features.
 - serde/serde_json: Serialization/deserialization for requests/responses.
 - tower_http: Static file serving and HTTP tracing.
-- tracing/tracing-subscriber: Structured logging and filtering.
+- tracing/tracing-subscriber: Structured logging and filtering with project-specific configuration.
 - reqwest: HTTP client for AI provider calls.
 - dotenv: Environment variable loading.
 
-**Updated** Rust edition updated to 2024 and version bumped to 26.11.2.
+**Updated** Backend package renamed to 'crablite', Rust edition updated to 2024, and version bumped to 26.11.3.
 
 ```mermaid
 graph LR
@@ -365,7 +366,7 @@ Dotenv["dotenv"] --> Main
 - WAL mode: Improves concurrency and reduces locking issues compared to default journaling.
 - Busy timeout: Prevents immediate failures under contention by waiting for lock availability.
 - Async I/O: Tokio runtime handles asynchronous operations for HTTP and database interactions.
-- Tracing: Use TraceLayer and structured logs to monitor request latency and errors.
+- Tracing: Use TraceLayer and structured logs to monitor request latency and errors with project-specific filtering.
 - Release optimizations: Binary stripping, LTO, and single codegen unit improve release performance.
 - File system operations: `create_dir_all` efficiently handles nested directory creation with proper error handling.
 
@@ -387,15 +388,16 @@ Common issues and resolutions:
 - Missing AI credentials: Set OPENAI_API_KEY; configure OPENAI_BASE_URL and OPENAI_MODEL as needed.
 - Static files not served: Ensure dist directory exists and contains built frontend assets.
 - Database directory creation failed: Check filesystem permissions and disk space; verify DB_DIR environment variable configuration.
+- Logging issues: Check RUST_LOG configuration uses "crablite=debug" format for project-specific logs.
 
 Operational tips:
-- Inspect logs via RUST_LOG to identify errors and request flows.
+- Inspect logs via RUST_LOG to identify errors and request flows with crablite-specific filtering.
 - Validate environment variables using a .env file loaded by dotenv.
 - Test endpoints with curl or Postman, verifying headers and payloads.
 - Configure DB_DIR environment variable to customize database storage location.
 - Monitor directory creation operations in logs for permission issues.
 
-**Updated** Added troubleshooting guidance for database directory creation and DB_DIR configuration.
+**Updated** Added troubleshooting guidance for database directory creation, DB_DIR configuration, and crablite-specific logging setup.
 
 **Section sources**
 - [main.rs:23-34](file://backend/src/main.rs#L23-L34)
@@ -403,8 +405,8 @@ Operational tips:
 - [ai.rs:24-37](file://backend/src/handlers/ai.rs#L24-L37)
 
 ## Conclusion
-The backend implements a secure, modular, and performant SQLite web UI server using Axum and sqlx. It leverages connection pooling, WAL mode, and async I/O to handle concurrent workloads efficiently. The handler organization separates concerns clearly, while authentication middleware protects API endpoints. Logging and tracing provide observability. Extensibility points include adding new endpoints, integrating additional AI providers, and expanding database operations through the existing state and handler patterns.
+The backend implements a secure, modular, and performant SQLite web UI server using Axum and sqlx. It leverages connection pooling, WAL mode, and async I/O to handle concurrent workloads efficiently. The handler organization separates concerns clearly, while authentication middleware protects API endpoints. Logging and tracing provide observability with project-specific filtering. Extensibility points include adding new endpoints, integrating additional AI providers, and expanding database operations through the existing state and handler patterns.
 
-**Updated** Enhanced with improved database directory handling supporting nested structures and configurable storage locations via DB_DIR environment variable. The project has been updated to Rust edition 2024 and version 26.11.2 for improved compatibility and performance.
+**Updated** Enhanced with improved database directory handling supporting nested structures and configurable storage locations via DB_DIR environment variable. The project has been updated to Rust edition 2024, package name 'crablite', and version 26.11.3 for improved compatibility and performance. The logging system now uses project-specific filtering for better observability.
 
 [No sources needed since this section summarizes without analyzing specific files]

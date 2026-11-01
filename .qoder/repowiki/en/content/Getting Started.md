@@ -14,13 +14,10 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced introduction with clearer purpose statement and core features overview
-- Updated project structure explanation with detailed component breakdown
-- Added comprehensive environment variables reference with practical examples
-- Improved deployment scenarios with step-by-step instructions
-- Enhanced troubleshooting guide with specific error scenarios
-- Added performance considerations and best practices
-- Updated architecture diagrams to reflect actual implementation
+- Updated all Docker commands and binary names from 'rust-sqlite-webui' to 'crablite'
+- Updated project references throughout the getting started guide
+- Maintained existing structure while ensuring consistency with current implementation
+- Verified environment variables and configuration match actual codebase
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -87,7 +84,7 @@ end
 **Section sources**
 - [README.md:10-26](file://README.md#L10-L26)
 - [Dockerfile:1-56](file://Dockerfile#L1-L56)
-- [main.rs:1-74](file://backend/src/main.rs#L1-L74)
+- [main.rs:1-84](file://backend/src/main.rs#L1-L84)
 
 ## Core Components
 
@@ -116,7 +113,7 @@ Multi-stage Docker build process ensures optimal production images:
 3. **Runtime Stage**: Minimal Alpine Linux with only necessary dependencies
 
 **Section sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
+- [main.rs:23-34](file://backend/src/main.rs#L23-L34)
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
 - [query.rs:101-201](file://backend/src/handlers/query.rs#L101-L201)
 - [ai.rs:24-149](file://backend/src/handlers/ai.rs#L24-L149)
@@ -156,7 +153,7 @@ BE-->>FE : {sql : "SELECT * FROM users LIMIT 10"}
 ```
 
 **Diagram sources**
-- [main.rs:51-65](file://backend/src/main.rs#L51-L65)
+- [main.rs:58-71](file://backend/src/main.rs#L58-L71)
 - [connection.rs:20-60](file://backend/src/handlers/connection.rs#L20-L60)
 - [query.rs:101-201](file://backend/src/handlers/query.rs#L101-L201)
 - [ai.rs:24-149](file://backend/src/handlers/ai.rs#L24-L149)
@@ -173,8 +170,8 @@ docker run -d \
   -p 3000:3000 \
   -v sqlite.db:/app/db/sqlite.db \
   -e API_KEY=your_secret_key \
-  --name sqlite-webui \
-  wangyucode/rust-sqlite-webui
+  --name crablite \
+  wangyucode/crablite
 ```
 
 **What this does:**
@@ -197,8 +194,8 @@ For more complex deployments, use Docker Compose to define your service configur
 ```yaml
 version: '3'
 services:
-  sqlite-webui:
-    image: wangyucode/rust-sqlite-webui
+  crablite:
+    image: wangyucode/crablite
     ports:
       - "3000:3000"
     volumes:
@@ -213,8 +210,8 @@ services:
 ```yaml
 version: '3'
 services:
-  sqlite-webui:
-    image: wangyucode/rust-sqlite-webui
+  crablite:
+    image: wangyucode/crablite
     ports:
       - "3000:3000"
     volumes:
@@ -243,13 +240,13 @@ If you prefer not to use containers, download prebuilt binaries:
 1. Download the archive for your OS and architecture from [GitHub Releases](https://github.com/sutanto1010/crablite/releases)
 2. Extract the archive:
    ```bash
-   tar -xzf rust-sqlite-webui-v<VERSION>-<TARGET>.tar.gz
-   cd rust-sqlite-webui-v<VERSION>-<TARGET>
+   tar -xzf crablite-v<VERSION>-<TARGET>.tar.gz
+   cd crablite-v<VERSION>-<TARGET>
    ```
 3. Keep the `dist/` directory intact (contains WebUI assets)
 4. Run the application:
    ```bash
-   API_KEY=your_secret_key ./rust-sqlite-webui
+   API_KEY=your_secret_key ./crablite
    ```
 5. Access the interface at `http://localhost:3000`
 
@@ -271,10 +268,12 @@ If you prefer not to use containers, download prebuilt binaries:
 ### Optional Variables
 | Variable | Default | Description | Example |
 |----------|---------|-------------|---------|
-| `RUST_LOG` | `rust_sqlite_webui=debug,tower_http=debug` | Logging level configuration. Controls verbosity of application logs. | `info`, `warn`, `error` |
+| `RUST_LOG` | `crablite=debug,tower_http=debug` | Logging level configuration. Controls verbosity of application logs. | `info`, `warn`, `error` |
 | `OPENAI_API_KEY` | None | OpenAI API key required for AI assistant functionality. Leave empty to disable AI features. | `sk-proj-...` |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL for OpenAI-compatible chat completions endpoint. Use for custom providers. | `https://custom-api.example.com/v1` |
 | `OPENAI_MODEL` | `gpt-5.4-mini` | Model name used for AI-assisted SQL correction and translation. | `gpt-4`, `claude-3-opus` |
+| `DB_DIR` | `db` (`/app/db` in Docker) | Directory used to discover and store SQLite database files. | `/data/databases` |
+| `PORT` | `3000` | Port on which the backend listens. Must be a valid `u16` port number. | `8080` |
 
 ### Development Configuration
 For local development, create a `.env` file in the `backend/` directory:
@@ -285,14 +284,17 @@ RUST_LOG=debug
 OPENAI_API_KEY=your-openai-key-here
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-5.4-mini
+DB_DIR=./data
+PORT=3000
 ```
 
 **Security Note:** Never commit `.env` files to version control. Use secrets management in production environments.
 
 **Section sources**
 - [README.md:70-83](file://README.md#L70-L83)
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [main.rs:39-45](file://backend/src/main.rs#L39-L45)
+- [main.rs:28-46](file://backend/src/main.rs#L28-L46)
+- [main.rs:48-55](file://backend/src/main.rs#L48-L55)
+- [main.rs:74-77](file://backend/src/main.rs#L74-L77)
 - [ai.rs:28-30](file://backend/src/handlers/ai.rs#L28-L30)
 
 ## Practical Deployment Scenarios
@@ -306,7 +308,7 @@ docker run -d \
   -v $(pwd)/database.sqlite:/app/db/database.sqlite \
   -e API_KEY=production-key \
   --name crablite-single \
-  wangyucode/rust-sqlite-webui
+  wangyucode/crablite
 ```
 
 **Verification:** After starting, navigate to the UI and verify the database appears in the file selector.
@@ -320,7 +322,7 @@ docker run -d \
   -v $(pwd)/data:/app/db \
   -e API_KEY=production-key \
   --name crablite-multi \
-  wangyucode/rust-sqlite-webui
+  wangyucode/crablite
 ```
 
 **Directory structure:**
@@ -343,7 +345,7 @@ Deploy with AI assistant capabilities for SQL correction and natural language qu
 version: '3'
 services:
   crablite:
-    image: wangyucode/rust-sqlite-webui
+    image: wangyucode/crablite
     ports:
       - "3000:3000"
     volumes:
@@ -421,7 +423,7 @@ docker run -d \
   -v $(pwd)/data:/app/db \
   -e API_KEY=$(openssl rand -hex 32) \
   --name crablite \
-  wangyucode/rust-sqlite-webui
+  wangyucode/crablite
 ```
 
 ### Step 3: First-Time Setup in the UI
@@ -444,7 +446,7 @@ docker run -d \
      -e API_KEY=your-api-key \
      -e OPENAI_API_KEY=sk-your-openai-key \
      --name crablite \
-     wangyucode/rust-sqlite-webui
+     wangyucode/crablite
    ```
 3. **Test AI features:** Try the "Correct SQL" feature with a sample query
 
@@ -581,7 +583,7 @@ docker stop crablite
 docker run -d \
   -e RUST_LOG=debug \
   --name crablite-debug \
-  wangyucode/rust-sqlite-webui
+  wangyucode/crablite
 ```
 
 #### Check Application Health
@@ -606,7 +608,7 @@ docker top crablite
 ```
 
 **Section sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
+- [main.rs:28-46](file://backend/src/main.rs#L28-L46)
 - [ai.rs:28-37](file://backend/src/handlers/ai.rs#L28-L37)
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
 

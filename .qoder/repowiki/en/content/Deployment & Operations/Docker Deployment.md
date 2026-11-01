@@ -3,6 +3,7 @@
 <cite>
 **Referenced Files in This Document**
 - [Dockerfile](file://Dockerfile)
+- [.github/workflows/docker-publish.yml](file://.github/workflows/docker-publish.yml)
 - [README.md](file://README.md)
 - [backend/Cargo.toml](file://backend/Cargo.toml)
 - [backend/src/main.rs](file://backend/src/main.rs)
@@ -12,11 +13,10 @@
 
 ## Update Summary
 **Changes Made**
-- Updated Environment Variables section to highlight DB_DIR and PORT configuration capabilities
-- Enhanced Volume Mounting Strategy with DB_DIR examples and subdirectory support
-- Added comprehensive Docker Compose configurations for development and production
-- Expanded troubleshooting guide with DB_DIR and PORT-specific issues
-- Updated security considerations to include volume mounting best practices
+- Updated Docker image naming conventions to reflect 'wangyucode/crablite' standard
+- Enhanced binary path documentation for multi-stage build process
+- Updated GitHub Actions workflow references to match current deployment pipeline
+- Refined container execution details with proper binary paths and CMD instructions
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -30,14 +30,14 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive Docker deployment guidance for CrabLite (rust-sqlite-webui). It explains the multi-stage build process, container configuration, environment variables including the enhanced DB_DIR and PORT configuration, volume mounting strategies, port exposure, and security considerations. It also includes guidance for Docker Compose usage, troubleshooting common issues, performance optimization tips, and best practices for production deployments.
+This document provides comprehensive Docker deployment guidance for CrabLite (rust-sqlite-webui). It explains the multi-stage build process, container configuration, environment variables including the enhanced DB_DIR and PORT configuration, volume mounting strategies, port exposure, and security considerations. It also includes guidance for Docker Compose usage, troubleshooting common issues, performance optimization tips, and best practices for production deployments using the official `wangyucode/crablite` Docker images.
 
 ## Project Structure
 The repository contains:
 - A frontend built with Node.js and pnpm
 - A backend written in Rust using Axum
 - A multi-stage Dockerfile that builds both parts and packages them into a minimal Alpine runtime image
-- GitHub Actions workflow to build and publish images
+- GitHub Actions workflow to build and publish images to `wangyucode/crablite` on Docker Hub
 
 ```mermaid
 graph TB
@@ -49,7 +49,7 @@ subgraph "Runtime"
 RT["Alpine Runtime<br/>static binary + static assets"]
 end
 FE --> |build artifacts dist/| RT
-BE --> |release binary| RT
+BE --> |release binary /app/backend/target/release/crablite| RT
 ```
 
 **Diagram sources**
@@ -62,8 +62,8 @@ BE --> |release binary| RT
 ## Core Components
 - Multi-stage Dockerfile:
   - Frontend builder stage uses node:24-alpine and pnpm to install dependencies and build static assets.
-  - Backend builder stage uses rust:alpine with musl-dev to compile a statically linked release binary.
-  - Runtime stage uses alpine:latest, installs minimal runtime dependencies, copies the compiled binary and frontend assets, sets environment variables, exposes port 3000, and runs the binary.
+  - Backend builder stage uses rust:alpine with musl-dev to compile a statically linked release binary at `/app/backend/target/release/crablite`.
+  - Runtime stage uses alpine:latest, installs minimal runtime dependencies, copies the compiled binary from `/app/backend/target/release/crablite` to `./crablite`, sets environment variables, exposes port 3000, and runs the binary via `CMD ["./crablite"]`.
 - Environment variables:
   - RUST_LOG controls logging verbosity.
   - PORT is set in the Dockerfile; the application binds to port 3000 by default but can be overridden.
@@ -105,7 +105,7 @@ Note over DB : Database files under DB_DIR are mounted via volumes
 **Diagram sources**
 - [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
 - [backend/src/main.rs:74-78](file://backend/src/main.rs#L74-L78)
-- [Dockerfile:49-53](file://Dockerfile#L49-L53)
+- [Dockerfile:49-55](file://Dockerfile#L49-L55)
 
 ## Detailed Component Analysis
 
@@ -130,10 +130,12 @@ Key behaviors:
 - Creates a dummy Cargo project to cache dependency resolution
 - Compiles dependencies only first, then copies actual source and compiles the release binary
 - Uses APP_VERSION build arg during compilation
+- **Updated** Binary output location: `/app/backend/target/release/crablite`
 
 Key behaviors:
 - Static linking produces a portable binary
 - Release profile enables LTO, stripping, and optimized codegen
+- Binary is built with version information embedded via APP_VERSION
 
 **Section sources**
 - [Dockerfile:16-35](file://Dockerfile#L16-L35)
@@ -142,13 +144,15 @@ Key behaviors:
 #### Runtime Stage
 - Base image: alpine:latest
 - Installs ca-certificates and tzdata
-- Copies the release binary and frontend dist/
+- **Updated** Copies the release binary from `/app/backend/target/release/crablite` to `./crablite`
+- Copies frontend dist/
 - Sets RUST_LOG and PORT environment variables
-- Exposes port 3000 and runs the binary
+- Exposes port 3000 and runs the binary via `CMD ["./crablite"]`
 
 Key behaviors:
 - Minimal footprint due to static binary and Alpine base
 - Timezone and CA certificates included for reliable operation
+- Binary execution uses relative path `./crablite`
 
 **Section sources**
 - [Dockerfile:37-55](file://Dockerfile#L37-L55)
@@ -166,17 +170,17 @@ Enhanced environment variable support for flexible deployment:
 Configuration examples:
 ```bash
 # Custom database directory
-docker run -e DB_DIR=/custom/path -v ./data:/custom/path crablite
+docker run -e DB_DIR=/custom/path -v ./data:/custom/path wangyucode/crablite
 
 # Custom port
-docker run -e PORT=8080 -p 8080:8080 crablite
+docker run -e PORT=8080 -p 8080:8080 wangyucode/crablite
 
 # Combined configuration
 docker run -e DB_DIR=/data/dbs -e PORT=8080 \
-  -v ./data:/data/dbs -p 8080:8080 crablite
+  -v ./data:/data/dbs -p 8080:8080 wangyucode/crablite
 ```
 
-**Updated** Enhanced with DB_DIR and PORT environment variable support for flexible container configuration.
+**Updated** Enhanced with DB_DIR and PORT environment variable support for flexible container configuration using the official `wangyucode/crablite` image.
 
 **Section sources**
 - [Dockerfile:49-53](file://Dockerfile#L49-L53)
@@ -191,13 +195,13 @@ docker run -e DB_DIR=/data/dbs -e PORT=8080 \
 Port configuration examples:
 ```bash
 # Use default port 3000
-docker run -p 3000:3000 crablite
+docker run -p 3000:3000 wangyucode/crablite
 
 # Use custom port 8080
-docker run -e PORT=8080 -p 8080:8080 crablite
+docker run -e PORT=8080 -p 8080:8080 wangyucode/crablite
 ```
 
-**Updated** Now supports dynamic port configuration via PORT environment variable.
+**Updated** Now supports dynamic port configuration via PORT environment variable using the official `wangyucode/crablite` image.
 
 **Section sources**
 - [Dockerfile:53](file://Dockerfile#L53)
@@ -213,19 +217,19 @@ Enhanced volume mounting with DB_DIR support:
 Volume mounting examples:
 ```bash
 # Single file with default DB_DIR
-docker run -v sqlite.db:/app/db/sqlite.db crablite
+docker run -v sqlite.db:/app/db/sqlite.db wangyucode/crablite
 
 # Directory with custom DB_DIR
-docker run -e DB_DIR=/data -v ./data:/data crablite
+docker run -e DB_DIR=/data -v ./data:/data wangyucode/crablite
 
 # Subdirectory organization
-docker run -e DB_DIR=/app/db/rust -v ./rust/data:/app/db/rust crablite
+docker run -e DB_DIR=/app/db/rust -v ./rust/data:/app/db/rust wangyucode/crablite
 
 # Multiple database directories
-docker run -e DB_DIR=/data/dbs -v ./production:/data/dbs crablite
+docker run -e DB_DIR=/data/dbs -v ./production:/data/dbs wangyucode/crablite
 ```
 
-**Updated** Enhanced with DB_DIR environment variable support for flexible database directory configuration and subdirectory organization.
+**Updated** Enhanced with DB_DIR environment variable support for flexible database directory configuration and subdirectory organization using the official `wangyucode/crablite` image.
 
 **Section sources**
 - [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
@@ -314,15 +318,16 @@ services:
     restart: unless-stopped
 ```
 
-**New Section** Comprehensive Docker Compose configurations for different deployment scenarios.
+**Updated** All Docker Compose configurations now use the official `wangyucode/crablite` image naming convention.
 
 ### CI/CD and Image Publishing
-GitHub Actions builds and pushes images to Docker Hub, tagging with latest and the version extracted from Cargo.toml. It also deploys to a server using docker compose.
+GitHub Actions builds and pushes images to Docker Hub under the `wangyucode/crablite` namespace, tagging with latest and the version extracted from Cargo.toml. It also deploys to a server using docker compose.
 
 Highlights:
 - Uses Docker Buildx for efficient builds
 - Caches layers via GitHub Actions cache
 - Extracts version from backend/Cargo.toml and passes it as APP_VERSION
+- **Updated** Image naming follows `wangyucode/crablite:latest,wangyucode/crablite:${VERSION}` pattern
 - Deploys via SSH and docker compose up with force-recreate
 
 **Section sources**
@@ -330,7 +335,7 @@ Highlights:
 
 ## Dependency Analysis
 The runtime depends on:
-- A statically linked Rust binary
+- A statically linked Rust binary (`./crablite`)
 - Static frontend assets served by the same process
 - Optional OpenAI integration via environment variables
 - Configurable database directory via DB_DIR environment variable
@@ -338,7 +343,7 @@ The runtime depends on:
 
 ```mermaid
 graph LR
-App["Application Binary"] --> FS["Filesystem (DB_DIR)"]
+App["Application Binary (./crablite)"] --> FS["Filesystem (DB_DIR)"]
 App --> Env["Environment Variables"]
 App --> Net["Network (PORT)"]
 Env --> Auth["Auth Middleware"]
@@ -365,8 +370,7 @@ Env --> Port["Port Binding (PORT)"]
 - Place the container behind a reverse proxy for TLS termination and connection pooling.
 - Scale horizontally by running multiple instances behind a load balancer if needed; share the same SQLite volume carefully or switch to a shared filesystem with appropriate locking.
 - Optimize DB_DIR placement for optimal I/O performance based on your storage infrastructure.
-
-[No sources needed since this section provides general guidance]
+- **Updated** Use the official `wangyucode/crablite` images for optimized builds with proper binary paths and dependencies.
 
 ## Troubleshooting Guide
 
@@ -375,12 +379,12 @@ Env --> Port["Port Binding (PORT)"]
   - Verify the DB_DIR environment variable is set correctly
   - Ensure the volume is mounted to the same path as DB_DIR
   - Check that the directory exists and has proper permissions
-  - Example: `-e DB_DIR=/data -v ./data:/data`
+  - Example: `-e DB_DIR=/data -v ./data:/data wangyucode/crablite`
 
 - **PORT conflicts**:
   - Ensure host port matches the container PORT setting
   - Check for port conflicts on the host machine
-  - Example: `-e PORT=8080 -p 8080:8080`
+  - Example: `-e PORT=8080 -p 8080:8080 wangyucode/crablite`
 
 ### Volume Mounting Issues
 - **Database files not found**:
@@ -398,6 +402,7 @@ Env --> Port["Port Binding (PORT)"]
 - **Container starts but UI does not load**:
   - Ensure the frontend build artifacts exist in /app/dist
   - Verify the binary is executable and the dist directory is copied correctly
+  - **Updated** Check that the binary path is correct: `./crablite` should be executable
 
 - **Cannot connect to database**:
   - Confirm the volume is mounted to DB_DIR and the SQLite file exists
@@ -413,7 +418,11 @@ Env --> Port["Port Binding (PORT)"]
 - **OpenAI features not working**:
   - Set OPENAI_API_KEY and related variables as required
 
-**Updated** Added specific troubleshooting sections for DB_DIR and PORT configuration issues.
+- **Image pull issues**:
+  - **Updated** Ensure you're using the correct image name: `wangyucode/crablite`
+  - Check Docker Hub connectivity and authentication if using private repositories
+
+**Updated** Added specific troubleshooting sections for DB_DIR and PORT configuration issues, plus image naming troubleshooting.
 
 **Section sources**
 - [backend/src/main.rs:48-55](file://backend/src/main.rs#L48-L55)
@@ -422,4 +431,6 @@ Env --> Port["Port Binding (PORT)"]
 - [README.md:72-85](file://README.md#L72-L85)
 
 ## Conclusion
-CrabLite's Docker setup delivers a highly efficient, minimal runtime image that bundles a static Rust backend and a Vite-built frontend. The enhanced configuration system now supports flexible database directory management through DB_DIR and dynamic port binding via PORT environment variables. By leveraging multi-stage builds, static linking, and Alpine-based runtime, the image remains small and secure. The improved volume mounting strategy supports complex database organization patterns while maintaining simplicity. Follow the environment variable and volume guidelines to configure authentication, logging, database storage, and network binding. Use the provided Docker Compose configurations as templates for different deployment scenarios, and apply the performance and security recommendations for robust production operations.
+CrabLite's Docker setup delivers a highly efficient, minimal runtime image that bundles a static Rust backend and a Vite-built frontend. The enhanced configuration system now supports flexible database directory management through DB_DIR and dynamic port binding via PORT environment variables. By leveraging multi-stage builds, static linking, and Alpine-based runtime, the image remains small and secure. The improved volume mounting strategy supports complex database organization patterns while maintaining simplicity. 
+
+**Updated** The deployment pipeline now consistently uses the `wangyucode/crablite` image naming convention across all environments, from development to production. The binary path structure (`/app/backend/target/release/crablite` → `./crablite`) ensures proper execution within the container. Follow the environment variable and volume guidelines to configure authentication, logging, database storage, and network binding. Use the provided Docker Compose configurations as templates for different deployment scenarios, and apply the performance and security recommendations for robust production operations with the official `wangyucode/crablite` images.

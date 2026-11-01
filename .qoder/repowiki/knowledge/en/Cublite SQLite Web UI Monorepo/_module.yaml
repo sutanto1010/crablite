@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: Crablite — SQLite Web Management Platform
+title: Cublite SQLite Web UI Monorepo
 scope:
     - README.md
     - README_CN.md
