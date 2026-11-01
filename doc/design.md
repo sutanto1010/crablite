@@ -71,9 +71,27 @@ Manage SQLite database connections.
   - `GET /api/health`: Health check.
 
 ### 4.2 Database Metadata
-Used for displaying database structure.
-- **API**:
-  - `GET /api/tables`: Get all table names in the current connection.
+Used for displaying database structure through the read-only Schema Explorer.
+
+**Schema Explorer scope and navigation**:
+- **Table Schema**: Shows columns (including hidden and generated columns), declared types, nullability, defaults, primary-key positions, foreign keys, index columns/collation/order, triggers, and the original `CREATE TABLE` SQL.
+- **Database Schema**: Browses user-defined tables, views, indexes, and triggers; inspects each object's stored SQL and copies the combined user-schema DDL. Objects without stored SQL, such as automatic indexes, are not included in the combined DDL.
+- **SQLite Internals**: Shows curated database, connection, and engine metadata plus every `main.sqlite_schema` entry, with a filter for normally hidden `sqlite_%` objects. Uncommon PRAGMA queries remain available through the SQL editor.
+- **Navigation**: Clicking a table continues to browse its rows. Separate Schema actions open table details and database-level Schema / Internals views in the main content area. On small screens, a table selector and action buttons replace the hidden sidebar.
+- **Refresh behavior**: Successful `CREATE`, `DROP`, or `ALTER` statements for tables, views, indexes, and triggers refresh table and active metadata views. Refresh preserves the selected object when it still exists and returns to the database overview when it does not. Changing databases clears all metadata state.
+
+**API**:
+- `GET /api/tables`: Get all user table names in the current connection.
+- `GET /api/schema`: Return `{ "objects": [...], "ddl": "..." }` for user-defined objects and their combined DDL.
+- `GET /api/schema/table?name=<table>`: Return one table's complete typed schema. Names are bound parameters, including names containing quotes or other special characters; a missing table returns `404`.
+- `GET /api/internals`: Return `{ "database": [...], "connection": [...], "engine": [...], "schema_entries": [...] }`.
+
+All metadata endpoints require the existing `x-api-key` authentication and inspect only the `main` database. Attached databases are listed by `PRAGMA database_list` but their objects are not browsed. Table details use SQLite's table-valued PRAGMA functions with bound identifiers rather than interpolated PRAGMA statements.
+
+The curated Internals inventory includes:
+- **Database**: `database_list`, `page_size`, `page_count`, `freelist_count`, `journal_mode`, `encoding`, `user_version`, `schema_version`, `application_id`, and `auto_vacuum`.
+- **Connection**: `foreign_keys`, `busy_timeout`, `synchronous`, and `cache_size` for the connection serving the request.
+- **Engine**: `sqlite_version()` and `compile_options`.
 
 ### 4.3 SQL Executor
 Core function for executing user-input SQL.
@@ -113,11 +131,12 @@ Interface layout adopts a classic single page layout:
     *   **Add Table**: Button to add a new table.
     *   Clicking a table name can generate a `SELECT` statement and quickly preview data.
 *   **Main Content (Right)**: Tabbed workspace.
-    *   **SQL Editor**: an simple textarea for inputting SQL statements.
-    *   **Tool Bar**: Toolbar, including execute SQL, CRUD operations after selecting rows.
-    *   **Table Data Tab**: Pure table browse mode, supporting simple sorting and filtering.
+    *   **SQL Editor**: Remains available above the Query, Database Schema, and SQLite Internals workspaces.
+    *   **Query**: Toolbar for SQL execution and selected-row CRUD operations, with compact result tables.
+    *   **Schema Explorer**: Split object navigation and detail views for table definitions, database objects, combined DDL, and SQLite internals.
 
-**Theme Style**:
-- Defaults to following system dark/light mode.
-- Uses DaisyUI's `light` and `dark` themes.
-- Accent color uses Rust's official orange.
+**Material 3 Theme Style**:
+- Applies Material Design 3 surface, tonal color, navigation, button, dialog, and compact-data patterns through the existing Tailwind CSS and DaisyUI layer; no additional UI framework is introduced.
+- Uses Rust-orange-derived OKLCH tonal tokens for explicit light and dark themes. The selected theme persists in `localStorage`.
+- Uses standard-sized primary controls, compact schema/result tables, accessible focus states, and reduced-motion support.
+- Bundles Latin Roboto weights and only the required Material Symbol SVGs locally, avoiding runtime CDN dependencies and a full multi-megabyte icon font.

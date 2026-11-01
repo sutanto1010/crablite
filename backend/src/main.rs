@@ -1,24 +1,27 @@
 use axum::{
+    Router,
     extract::Request,
     http::{HeaderMap, StatusCode},
     middleware::{self, Next},
     response::Response,
     routing::{get, post},
-    Router,
 };
-use tower_http::trace::TraceLayer;
-use tower_http::services::{ServeDir};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tower_http::services::ServeDir;
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod state;
 mod handlers;
+mod state;
 
+use handlers::{
+    connect_db, correct_sql, execute_query, get_database_schema, get_sqlite_internals,
+    get_table_schema, health_check, list_dbs, list_tables,
+};
 use state::AppState;
-use handlers::{health_check, connect_db, execute_query, list_dbs, list_tables, correct_sql};
 
 async fn auth_middleware(
     headers: HeaderMap,
@@ -39,11 +42,11 @@ async fn main() {
 
     // 初始化日志
     tracing_subscriber::registry()
-    .with(tracing_subscriber::EnvFilter::new(
-        std::env::var("RUST_LOG").unwrap_or_else(|_| "crablite=debug,tower_http=debug".into()),
-    ))
-    .with(tracing_subscriber::fmt::layer())
-    .init();
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "crablite=debug,tower_http=debug".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     let db_dir = std::env::var_os("DB_DIR")
         .map(PathBuf::from)
@@ -59,6 +62,9 @@ async fn main() {
         .route("/connect", post(connect_db))
         .route("/db-files", get(list_dbs))
         .route("/tables", get(list_tables))
+        .route("/schema", get(get_database_schema))
+        .route("/schema/table", get(get_table_schema))
+        .route("/internals", get(get_sqlite_internals))
         .route("/query", post(execute_query))
         .route("/correct", post(correct_sql))
         .layer(middleware::from_fn(auth_middleware));
@@ -77,7 +83,7 @@ async fn main() {
         .expect("PORT must be a valid port number");
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("listening on {}", addr);
-    
+
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

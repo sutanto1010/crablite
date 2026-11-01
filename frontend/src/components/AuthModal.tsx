@@ -1,5 +1,6 @@
 import { Component, createSignal, Show } from "solid-js";
 import { isAuthModalOpen, setIsAuthModalOpen, setApiKey } from "../lib/store";
+import Icon from "./Icon";
 
 const AuthModal: Component = () => {
     const [inputKey, setInputKey] = createSignal("");
@@ -19,8 +20,9 @@ const AuthModal: Component = () => {
         <Show when={isAuthModalOpen()}>
             <div class="modal modal-open bg-black/50">
                 <div class="modal-box">
-                    <h3 class="font-bold text-lg">Authentication Required</h3>
-                    <p class="py-4">Please enter the API Key to access the database.</p>
+                    <div class="size-12 rounded-full bg-primary/12 text-primary grid place-items-center mb-4"><Icon name="key" /></div>
+                    <h3 class="font-medium text-xl">Authentication required</h3>
+                    <p class="py-3 text-sm text-base-content/70">Enter your API key to access this database.</p>
                     <div class="form-control w-full">
                         <input
                             type="password"

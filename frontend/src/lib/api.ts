@@ -8,6 +8,76 @@ export interface QueryResult {
     error?: string;
 }
 
+export interface SchemaObject {
+    object_type: "table" | "view" | "index" | "trigger";
+    name: string;
+    table_name: string;
+    sql: string | null;
+}
+
+export interface DatabaseSchema {
+    objects: SchemaObject[];
+    ddl: string;
+}
+
+export interface ColumnSchema {
+    cid: number;
+    name: string;
+    declared_type: string;
+    not_null: boolean;
+    default_value: string | null;
+    primary_key_position: number;
+    hidden: number;
+}
+
+export interface ForeignKeySchema {
+    id: number;
+    sequence: number;
+    referenced_table: string;
+    from: string;
+    to: string | null;
+    on_update: string;
+    on_delete: string;
+    match_type: string;
+}
+
+export interface IndexSchema {
+    name: string;
+    unique: boolean;
+    origin: string;
+    partial: boolean;
+    columns: { name: string | null; descending: boolean; collation: string }[];
+}
+
+export interface TableSchema {
+    name: string;
+    sql: string | null;
+    columns: ColumnSchema[];
+    foreign_keys: ForeignKeySchema[];
+    indexes: IndexSchema[];
+    triggers: { name: string; sql: string | null }[];
+}
+
+export interface MetadataValue {
+    name: string;
+    values: string[];
+}
+
+export interface SqliteSchemaEntry {
+    object_type: string;
+    name: string;
+    table_name: string;
+    root_page: number;
+    sql: string | null;
+}
+
+export interface SqliteInternals {
+    database: MetadataValue[];
+    connection: MetadataValue[];
+    engine: MetadataValue[];
+    schema_entries: SqliteSchemaEntry[];
+}
+
 
 const getHeaders = (apiKey: string) => ({
     "Content-Type": "application/json",
@@ -32,6 +102,32 @@ export const fetchTables = async (apiKey: string, onUnauthorized?: () => void): 
     }
     throw new Error("Failed to fetch tables");
 };
+
+const fetchMetadata = async <T>(
+    path: string,
+    apiKey: string,
+    onUnauthorized: (() => void) | undefined,
+    errorMessage: string,
+): Promise<T> => {
+    const res = await fetch(path, { headers: { "x-api-key": apiKey } });
+    await handleResponse(res, onUnauthorized);
+    if (!res.ok) throw new Error(errorMessage);
+    return await res.json() as T;
+};
+
+export const fetchDatabaseSchema = (apiKey: string, onUnauthorized?: () => void) =>
+    fetchMetadata<DatabaseSchema>("./api/schema", apiKey, onUnauthorized, "Failed to fetch database schema");
+
+export const fetchTableSchema = (name: string, apiKey: string, onUnauthorized?: () => void) =>
+    fetchMetadata<TableSchema>(
+        `./api/schema/table?${new URLSearchParams({ name })}`,
+        apiKey,
+        onUnauthorized,
+        "Failed to fetch table schema",
+    );
+
+export const fetchSqliteInternals = (apiKey: string, onUnauthorized?: () => void) =>
+    fetchMetadata<SqliteInternals>("./api/internals", apiKey, onUnauthorized, "Failed to fetch SQLite internals");
 
 export const execSql = async (sql: string, apiKey: string, onUnauthorized?: () => void): Promise<QueryResult> => {
     const response = await fetch("./api/query", {

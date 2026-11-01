@@ -1,8 +1,9 @@
 import { createSignal } from "solid-js";
 import * as api from "./api";
 
-// Re-export QueryResult for components to use
+// Re-export API types for components to use
 export type QueryResult = api.QueryResult;
+export type WorkspaceView = "query" | "schema" | "internals";
 
 export const [apiKey, setApiKey] = createSignal<string>(localStorage.getItem("api_key") || "");
 export const [isAuthModalOpen, setIsAuthModalOpen] = createSignal<boolean>(false);
@@ -17,7 +18,16 @@ export const [queryResult, setQueryResult] = createSignal<QueryResult | null>(nu
 export const [isQuerying, setIsQuerying] = createSignal<boolean>(false);
 export const [isCorrecting, setIsCorrecting] = createSignal<boolean>(false);
 
+export const [workspaceView, setWorkspaceView] = createSignal<WorkspaceView>("query");
+export const [databaseSchema, setDatabaseSchema] = createSignal<api.DatabaseSchema | null>(null);
+export const [tableSchema, setTableSchema] = createSignal<api.TableSchema | null>(null);
+export const [sqliteInternals, setSqliteInternals] = createSignal<api.SqliteInternals | null>(null);
+export const [selectedSchemaObject, setSelectedSchemaObject] = createSignal<string | null>(null);
+export const [isMetadataLoading, setIsMetadataLoading] = createSignal(false);
+export const [metadataError, setMetadataError] = createSignal<string | null>(null);
+
 const onUnauthorized = () => setIsAuthModalOpen(true);
+const quoteIdentifier = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
 export const resetStore = () => {
     setTables([]);
@@ -25,24 +35,96 @@ export const resetStore = () => {
     setSqlContent("");
     setQueryResult(null);
     setSelectedRowIndices([]);
+    setWorkspaceView("query");
+    setDatabaseSchema(null);
+    setTableSchema(null);
+    setSqliteInternals(null);
+    setSelectedSchemaObject(null);
+    setMetadataError(null);
 };
 
 export const fetchTables = async () => {
     try {
         const newTables = await api.fetchTables(apiKey(), onUnauthorized);
         setTables(newTables);
-        if (!currentTable() && newTables.length > 0) {
-            setCurrentTable(newTables[0]);
-        }
-        if (currentTable()) {
-            setSqlContent(`SELECT * FROM ${currentTable()} LIMIT 100`);
+        const selectedTable = currentTable();
+        const nextTable = selectedTable && newTables.includes(selectedTable)
+            ? selectedTable
+            : newTables[0] || null;
+        setCurrentTable(nextTable);
+        if (nextTable) {
+            setSqlContent(`SELECT * FROM ${quoteIdentifier(nextTable)} LIMIT 100`);
             await runQuery();
+        } else {
+            setSqlContent("");
+            setQueryResult(null);
         }
     } catch (e) {
         console.error("Failed to fetch tables", e);
         setTables([]);
         setCurrentTable(null);
         setSqlContent("");
+    }
+};
+
+const loadSchema = async (selectedName: string | null) => {
+    setWorkspaceView("schema");
+    setIsMetadataLoading(true);
+    setMetadataError(null);
+    try {
+        const database = await api.fetchDatabaseSchema(apiKey(), onUnauthorized);
+        setDatabaseSchema(database);
+        const selectedObject = database.objects.find((object) => object.name === selectedName);
+        if (selectedObject?.object_type === "table") {
+            setTableSchema(await api.fetchTableSchema(selectedObject.name, apiKey(), onUnauthorized));
+            setSelectedSchemaObject(selectedObject.name);
+        } else {
+            setTableSchema(null);
+            setSelectedSchemaObject(selectedObject?.name || null);
+        }
+    } catch (error: any) {
+        setMetadataError(error.message);
+    } finally {
+        setIsMetadataLoading(false);
+    }
+};
+
+export const openDatabaseSchema = async () => {
+    await loadSchema(null);
+};
+
+export const openTableSchema = async (name: string) => {
+    setCurrentTable(name);
+    await loadSchema(name);
+};
+
+export const selectSchemaObject = async (object: api.SchemaObject) => {
+    if (object.object_type === "table") {
+        await openTableSchema(object.name);
+    } else {
+        setTableSchema(null);
+        setSelectedSchemaObject(object.name);
+    }
+};
+
+export const openSqliteInternals = async () => {
+    setWorkspaceView("internals");
+    setIsMetadataLoading(true);
+    setMetadataError(null);
+    try {
+        setSqliteInternals(await api.fetchSqliteInternals(apiKey(), onUnauthorized));
+    } catch (error: any) {
+        setMetadataError(error.message);
+    } finally {
+        setIsMetadataLoading(false);
+    }
+};
+
+export const refreshMetadata = async () => {
+    if (workspaceView() === "internals") {
+        await openSqliteInternals();
+    } else if (workspaceView() === "schema") {
+        await loadSchema(selectedSchemaObject() || tableSchema()?.name || null);
     }
 };
 
@@ -66,11 +148,12 @@ export const runQuery = async (sqlOverride?: string) => {
 
         // Simple side-effect handling: if it's a DDL or DML, refresh related data
         const lowerSql = sql.trim().toLowerCase();
-        if (lowerSql.match(/^\s*(create|drop)\s+table\b/)) {
+        if (lowerSql.match(/^\s*(create|drop|alter)\s+(table|view|index|trigger)\b/)) {
             await fetchTables();
+            await refreshMetadata();
         } else if (lowerSql.match(/^\s*(insert|update|delete)\b/) && currentTable()) {
             // Re-fetch current table data
-            const selectSql = `SELECT * FROM "${currentTable()}" LIMIT 100`;
+            const selectSql = `SELECT * FROM ${quoteIdentifier(currentTable()!)} LIMIT 100`;
             const selectData = await execSql(selectSql);
             // Preserve execution stats from the modification query, but show new data
             setQueryResult({

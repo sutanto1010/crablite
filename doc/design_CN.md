@@ -70,9 +70,27 @@ crablite/
   - `GET /api/health`: 健康检查。
 
 ### 4.2 数据库元数据
-用于展示数据库结构。
-- **API**:
-  - `GET /api/tables`: 获取当前连接中的所有表名。
+通过只读的 Schema Explorer 展示数据库结构。
+
+**Schema Explorer 范围与导航**：
+- **Table Schema**：展示列（包括隐藏列和生成列）、声明类型、空值约束、默认值、主键位置、外键、索引列/排序规则/方向、触发器，以及原始 `CREATE TABLE` SQL。
+- **Database Schema**：浏览用户定义的表、视图、索引和触发器，查看对象保存的 SQL，并复制组合后的用户 Schema DDL。自动索引等没有保存 SQL 的对象不会包含在组合 DDL 中。
+- **SQLite Internals**：展示精选的数据库、连接和引擎元数据，以及全部 `main.sqlite_schema` 条目，并可筛选通常隐藏的 `sqlite_%` 对象。不常用的 PRAGMA 仍可通过 SQL 编辑器查询。
+- **导航**：点击表仍然浏览数据行；独立的 Schema 操作打开表详情、数据库 Schema 和 Internals 视图。小屏幕使用表选择器和操作按钮替代隐藏的侧栏。
+- **刷新行为**：表、视图、索引或触发器的 `CREATE`、`DROP`、`ALTER` 成功后，刷新表列表和当前元数据视图。对象仍存在时保留选择，已删除时返回数据库概览；切换数据库会清空全部元数据状态。
+
+**API**：
+- `GET /api/tables`：获取当前连接中的用户表名。
+- `GET /api/schema`：返回 `{ "objects": [...], "ddl": "..." }`，包含用户对象和组合 DDL。
+- `GET /api/schema/table?name=<table>`：返回单个表的完整类型化 Schema。表名使用绑定参数，支持引号及特殊字符；表不存在时返回 `404`。
+- `GET /api/internals`：返回 `{ "database": [...], "connection": [...], "engine": [...], "schema_entries": [...] }`。
+
+所有元数据端点均使用现有 `x-api-key` 认证，并且只检查 `main` 数据库。`PRAGMA database_list` 会列出附加数据库，但不会浏览其对象。表详情通过 SQLite 表值 PRAGMA 函数绑定标识符，避免将表名插值到 PRAGMA 语句中。
+
+Internals 的精选内容包括：
+- **数据库**：`database_list`、`page_size`、`page_count`、`freelist_count`、`journal_mode`、`encoding`、`user_version`、`schema_version`、`application_id`、`auto_vacuum`。
+- **连接**：处理当前请求的连接上的 `foreign_keys`、`busy_timeout`、`synchronous`、`cache_size`。
+- **引擎**：`sqlite_version()` 和 `compile_options`。
 
 ### 4.3 SQL 执行器
 核心功能，用于执行用户输入的 SQL。
@@ -108,11 +126,12 @@ crablite/
     *   **Add Table**: 按钮用于添加新表。
     *   点击表名可以生成 `SELECT` 语句并快速预览数据。
 *   **Main Content (右侧)**: 选项卡式工作区。
-    *   **SQL Editor**: 简单的文本区域，用于输入 SQL 语句。
-    *   **Tool Bar**: 工具栏，包括执行SQL，选中行之后的增删改查操作。
-    *   **Table Data Tab**: 纯表格浏览模式，支持简单的排序和过滤。
+    *   **SQL Editor**: 始终位于 Query、Database Schema 和 SQLite Internals 工作区上方。
+    *   **Query**: 提供 SQL 执行、选中行增删改操作和紧凑型结果表格。
+    *   **Schema Explorer**: 通过对象导航和详情视图展示表定义、数据库对象、组合 DDL 与 SQLite Internals。
 
-**主题风格**:
-- 默认跟随系统深色/浅色模式。
-- 使用 DaisyUI 的 `light` 和 `dark` 主题。
-- 强调色使用 Rust 的官方橙色。
+**Material 3 主题风格**：
+- 在现有 Tailwind CSS 与 DaisyUI 层上应用 Material Design 3 的 Surface、色调、导航、按钮、对话框和紧凑数据模式，不引入新的 UI 框架。
+- 使用由 Rust 橙色派生的 OKLCH 色阶，提供可显式切换的浅色和深色主题，并将选择保存到 `localStorage`。
+- 主要操作使用标准尺寸控件，Schema 和结果表保持紧凑，同时提供可访问的焦点状态与减少动画支持。
+- 本地打包拉丁字符集 Roboto 字重和实际使用的 Material Symbol SVG，避免运行时 CDN 依赖及完整数 MB 图标字体。

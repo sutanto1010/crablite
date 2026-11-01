@@ -1,5 +1,6 @@
 import { Component, For, Show } from "solid-js";
 import { queryResult, selectedRowIndices, setSelectedRowIndices} from "../lib/store";
+import Icon from "./Icon";
 
 const ResultTable: Component = () => {
   const isAllSelected = () => {
@@ -40,7 +41,7 @@ const ResultTable: Component = () => {
   return (
     <div class="bg-base-100 flex-1 flex flex-col min-h-0">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 px-1">
-        <h2 class="text-lg font-bold">Results</h2>
+        <h2 class="text-sm font-medium text-base-content/70">Query results</h2>
         <Show when={queryResult()?.executionTime}>
           <span class="text-xs text-base-content/60">
             <Show when={queryResult()?.affectedRows !== null && queryResult()?.affectedRows !== undefined} fallback={`${queryResult()?.rows.length} rows returned`}>
@@ -53,13 +54,13 @@ const ResultTable: Component = () => {
 
       <Show when={queryResult()?.error}>
         <div role="alert" class="alert alert-error mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <Icon name="error" />
           <span>{queryResult()?.error}</span>
         </div>
       </Show>
 
-      <div class="flex-1 overflow-auto">
-        <table class="table table-zebra table-sm border-separate border border-base-300">
+      <div class="flex-1 overflow-auto rounded-xl border border-base-300">
+        <table class="table table-zebra table-sm">
           <thead>
             <tr>
               <th>
@@ -102,8 +103,9 @@ const ResultTable: Component = () => {
           </tbody>
         </table>
         <Show when={!queryResult() && !queryResult()?.error}>
-          <div class="p-4 text-center text-base-content/60">
-            Run a query to see results
+          <div class="h-full min-h-48 flex flex-col items-center justify-center p-6 text-center text-base-content/60">
+            <Icon name="table_rows" class="size-9 text-base-content/30" />
+            <span class="mt-2 text-sm">Run a query to see results</span>
           </div>
         </Show>
         <Show when={queryResult() && queryResult()?.columns.length === 0 && !queryResult()?.error}>

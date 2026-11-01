@@ -1,9 +1,11 @@
-pub mod health;
-pub mod connection;
-pub mod query;
 pub mod ai;
+pub mod connection;
+pub mod health;
+pub mod metadata;
+pub mod query;
 
-pub use health::health_check;
-pub use connection::{connect_db, list_dbs, list_tables};
-pub use query::execute_query;
 pub use ai::correct_sql;
+pub use connection::{connect_db, list_dbs, list_tables};
+pub use health::health_check;
+pub use metadata::{get_database_schema, get_sqlite_internals, get_table_schema};
+pub use query::execute_query;
