@@ -7,10 +7,20 @@
 - [health.rs](file://backend/src/handlers/health.rs)
 - [connection.rs](file://backend/src/handlers/connection.rs)
 - [query.rs](file://backend/src/handlers/query.rs)
+- [metadata.rs](file://backend/src/handlers/metadata.rs)
 - [ai.rs](file://backend/src/handlers/ai.rs)
 - [state.rs](file://backend/src/state.rs)
+- [api.ts](file://frontend/src/lib/api.ts)
 - [Cargo.toml](file://backend/Cargo.toml)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added documentation for three new REST API endpoints: `/api/schema`, `/api/schema/table`, and `/api/internals`
+- Updated handler organization section to include metadata.rs module
+- Enhanced architecture overview with new schema exploration capabilities
+- Added comprehensive documentation for schema and internals endpoints
+- Updated testing section with new endpoint examples
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -27,6 +37,7 @@
 ## Introduction
 This document describes the backend API endpoints and their handlers for the SQLite WebUI service. It focuses on:
 - The health check endpoint (/api/health) for monitoring and status reporting
+- **New schema exploration endpoints** (/api/schema, /api/schema/table, /api/internals) for database introspection
 - Handler organization using mod.rs for module exports and routing
 - Request/response formats, parameter validation, and error structures
 - Middleware integration (API key authentication), request processing pipelines, and response transformation
@@ -35,7 +46,7 @@ This document describes the backend API endpoints and their handlers for the SQL
 The backend is implemented with Axum, uses a shared application state to hold a database pool, and exposes REST endpoints under /api.
 
 ## Project Structure
-The backend source code is organized by feature modules under handlers/, with a central router in main.rs that wires routes to handler functions. Application-wide state is defined in state.rs and injected into handlers via Axum’s State extractor.
+The backend source code is organized by feature modules under handlers/, with a central router in main.rs that wires routes to handler functions. Application-wide state is defined in state.rs and injected into handlers via Axum's State extractor.
 
 ```mermaid
 graph TB
@@ -43,22 +54,24 @@ A["main.rs<br/>Router & middleware"] --> B["handlers/mod.rs<br/>Module re-export
 B --> C["handlers/health.rs<br/>Health check"]
 B --> D["handlers/connection.rs<br/>DB connect/list tables"]
 B --> E["handlers/query.rs<br/>Execute SQL queries"]
-B --> F["handlers/ai.rs<br/>AI-assisted SQL correction"]
-A --> G["state.rs<br/>AppState"]
+B --> F["handlers/metadata.rs<br/>Schema & introspection"]
+B --> G["handlers/ai.rs<br/>AI-assisted SQL correction"]
+A --> H["state.rs<br/>AppState"]
 ```
 
 **Diagram sources**
-- [main.rs:1-74](file://backend/src/main.rs#L1-L74)
-- [mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
+- [main.rs:1-90](file://backend/src/main.rs#L1-L90)
+- [mod.rs:1-12](file://backend/src/handlers/mod.rs#L1-L12)
 - [health.rs:1-6](file://backend/src/handlers/health.rs#L1-L6)
 - [connection.rs:1-145](file://backend/src/handlers/connection.rs#L1-L145)
 - [query.rs:1-201](file://backend/src/handlers/query.rs#L1-L201)
+- [metadata.rs:1-612](file://backend/src/handlers/metadata.rs#L1-L612)
 - [ai.rs:1-149](file://backend/src/handlers/ai.rs#L1-L149)
 - [state.rs:1-9](file://backend/src/state.rs#L1-L9)
 
 **Section sources**
-- [main.rs:1-74](file://backend/src/main.rs#L1-L74)
-- [mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
+- [main.rs:1-90](file://backend/src/main.rs#L1-L90)
+- [mod.rs:1-12](file://backend/src/handlers/mod.rs#L1-L12)
 - [state.rs:1-9](file://backend/src/state.rs#L1-L9)
 
 ## Core Components
@@ -66,6 +79,7 @@ A --> G["state.rs<br/>AppState"]
 - Health endpoint: handlers/health.rs provides a simple health check returning status and version.
 - Connection handlers: handlers/connection.rs handles listing available .db files, connecting to a SQLite database, and listing tables.
 - Query handler: handlers/query.rs executes SQL against the connected database and returns structured results.
+- **Metadata handlers**: handlers/metadata.rs provides comprehensive schema exploration and database introspection capabilities.
 - AI helper: handlers/ai.rs calls an external LLM API to correct or generate SQL based on table schema and sample data.
 - Shared state: state.rs defines AppState holding an optional SqlitePool protected by RwLock.
 
@@ -73,12 +87,14 @@ Key responsibilities:
 - Routing and middleware orchestration live in main.rs.
 - Business logic for each domain is encapsulated in dedicated handler modules.
 - Data access and persistence are performed via sqlx against a SQLite pool stored in AppState.
+- **Schema exploration and introspection are handled through dedicated metadata endpoints**.
 
 **Section sources**
-- [main.rs:22-65](file://backend/src/main.rs#L22-L65)
+- [main.rs:22-70](file://backend/src/main.rs#L22-L70)
 - [health.rs:1-6](file://backend/src/handlers/health.rs#L1-L6)
 - [connection.rs:13-145](file://backend/src/handlers/connection.rs#L13-L145)
 - [query.rs:12-201](file://backend/src/handlers/query.rs#L12-L201)
+- [metadata.rs:334-437](file://backend/src/handlers/metadata.rs#L334-L437)
 - [ai.rs:12-149](file://backend/src/handlers/ai.rs#L12-L149)
 - [state.rs:5-8](file://backend/src/state.rs#L5-L8)
 
@@ -103,7 +119,10 @@ Router->>MW : Check x-api-key
 alt Valid API key
 MW-->>Router : next()
 Router->>H : Dispatch to handler
-alt Handler needs DB
+alt Schema/Introspection
+H->>DB : Query sqlite_schema, PRAGMA info
+DB-->>H : Schema metadata
+else Handler needs DB
 H->>DB : Execute query or list tables
 DB-->>H : Result
 end
@@ -116,9 +135,10 @@ end
 ```
 
 **Diagram sources**
-- [main.rs:22-65](file://backend/src/main.rs#L22-L65)
+- [main.rs:22-70](file://backend/src/main.rs#L22-L70)
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
 - [query.rs:101-201](file://backend/src/handlers/query.rs#L101-L201)
+- [metadata.rs:334-437](file://backend/src/handlers/metadata.rs#L334-L437)
 
 ## Detailed Component Analysis
 
@@ -152,7 +172,7 @@ Notes:
 - Version resolution uses compile-time constants.
 
 **Section sources**
-- [main.rs:60-62](file://backend/src/main.rs#L60-L62)
+- [main.rs:73](file://backend/src/main.rs#L73)
 - [health.rs:1-6](file://backend/src/handlers/health.rs#L1-L6)
 
 ### Module Organization Pattern (handlers/mod.rs)
@@ -169,10 +189,11 @@ Exported handlers:
 - health_check from health.rs
 - connect_db, list_dbs, list_tables from connection.rs
 - execute_query from query.rs
+- get_database_schema, get_table_schema, get_sqlite_internals from metadata.rs
 - correct_sql from ai.rs
 
 **Section sources**
-- [mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
+- [mod.rs:1-12](file://backend/src/handlers/mod.rs#L1-L12)
 
 ### Authentication Middleware
 Purpose:
@@ -193,8 +214,8 @@ Error behavior:
 - Missing or incorrect API key yields 401 Unauthorized.
 
 **Section sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [main.rs:52-58](file://backend/src/main.rs#L52-L58)
+- [main.rs:26-37](file://backend/src/main.rs#L26-L37)
+- [main.rs:61-70](file://backend/src/main.rs#L61-L70)
 
 ### Database Connection Endpoints
 
@@ -270,6 +291,106 @@ Implementation notes:
 
 **Section sources**
 - [connection.rs:111-129](file://backend/src/handlers/connection.rs#L111-L129)
+
+### Schema Exploration Endpoints
+
+#### GET /api/schema
+Purpose:
+- Retrieve comprehensive database schema information including all user-defined objects and combined DDL.
+
+Request:
+- Method: GET
+- Path: /api/schema
+
+Response:
+- 200 OK with JSON object containing:
+  - objects: Array of SchemaObject entries (tables, views, indexes, triggers)
+  - ddl: Combined DDL string of all user-defined objects
+
+SchemaObject structure:
+{
+  "object_type": "table|view|index|trigger",
+  "name": "object_name",
+  "table_name": "associated_table",
+  "sql": "CREATE statement or null"
+}
+
+Error handling:
+- 400 Bad Request if no database is connected
+- 500 Internal Server Error for schema loading failures
+
+**Section sources**
+- [main.rs:65](file://backend/src/main.rs#L65)
+- [metadata.rs:334-354](file://backend/src/handlers/metadata.rs#L334-L354)
+
+#### GET /api/schema/table
+Purpose:
+- Get detailed schema information for a specific table including columns, foreign keys, indexes, and triggers.
+
+Request:
+- Method: GET
+- Path: /api/schema/table
+- Query Parameters:
+  - name: Table name (supports special characters and quotes)
+
+Response:
+- 200 OK with TableSchema object containing:
+  - name: Table name
+  - sql: Original CREATE TABLE statement
+  - columns: Column definitions with types, constraints, and properties
+  - foreign_keys: Foreign key relationships
+  - indexes: Index definitions and column mappings
+  - triggers: Trigger definitions
+
+TableSchema structure:
+{
+  "name": "table_name",
+  "sql": "CREATE TABLE statement",
+  "columns": [...],
+  "foreign_keys": [...],
+  "indexes": [...],
+  "triggers": [...]
+}
+
+Error handling:
+- 400 Bad Request if no database is connected
+- 404 Not Found if table doesn't exist
+- 500 Internal Server Error for schema loading failures
+
+**Section sources**
+- [main.rs:66](file://backend/src/main.rs#L66)
+- [metadata.rs:356-377](file://backend/src/handlers/metadata.rs#L356-L377)
+
+#### GET /api/internals
+Purpose:
+- Access SQLite engine internals, database configuration, and connection settings for advanced diagnostics.
+
+Request:
+- Method: GET
+- Path: /api/internals
+
+Response:
+- 200 OK with SqliteInternals object containing:
+  - database: Database-level PRAGMA values (page_size, journal_mode, etc.)
+  - connection: Connection-specific settings (foreign_keys, busy_timeout, etc.)
+  - engine: Engine information (sqlite_version, compile_options)
+  - schema_entries: Complete sqlite_schema table contents
+
+SqliteInternals structure:
+{
+  "database": [{name: "pragma_name", values: ["value1", "value2"]}],
+  "connection": [{name: "setting", values: ["value"]}],
+  "engine": [{name: "info", values: ["value"]}],
+  "schema_entries": [{object_type, name, table_name, root_page, sql}]
+}
+
+Error handling:
+- 400 Bad Request if no database is connected
+- 500 Internal Server Error for internals loading failures
+
+**Section sources**
+- [main.rs:67](file://backend/src/main.rs#L67)
+- [metadata.rs:379-437](file://backend/src/handlers/metadata.rs#L379-L437)
 
 ### Query Execution Endpoint
 
@@ -369,9 +490,11 @@ Main["main.rs"] --> Mod["handlers/mod.rs"]
 Mod --> Health["handlers/health.rs"]
 Mod --> Conn["handlers/connection.rs"]
 Mod --> Query["handlers/query.rs"]
+Mod --> Metadata["handlers/metadata.rs"]
 Mod --> AI["handlers/ai.rs"]
 Conn --> State["state.rs"]
 Query --> State
+Metadata --> State
 AI --> State
 ```
 
@@ -387,8 +510,8 @@ Build-time configuration:
 - APP_VERSION can be set during build to override package version in health endpoint.
 
 **Diagram sources**
-- [main.rs:1-74](file://backend/src/main.rs#L1-L74)
-- [mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
+- [main.rs:1-90](file://backend/src/main.rs#L1-L90)
+- [mod.rs:1-12](file://backend/src/handlers/mod.rs#L1-L12)
 - [Cargo.toml:1-24](file://backend/Cargo.toml#L1-L24)
 
 **Section sources**
@@ -400,6 +523,7 @@ Build-time configuration:
 - Tracing: TraceLayer provides request/response metrics; tune RUST_LOG to control verbosity.
 - Query execution: Row mapping is type-aware but still involves conversions; consider caching column metadata for repeated queries if needed.
 - Static assets: ServeDir serves frontend assets; ensure dist is built and up-to-date.
+- **Schema introspection**: Uses efficient PRAGMA queries and bound parameters to avoid SQL injection while providing comprehensive metadata access.
 
 [No sources needed since this section provides general guidance]
 
@@ -417,20 +541,28 @@ Common issues and resolutions:
   - Inspect the error string in the response body; fix the SQL or ensure the database is connected.
 - AI correction fails:
   - Verify OPENAI_API_KEY is set and network connectivity to the configured base URL.
+- **Schema endpoints return 400 Bad Request**:
+  - Ensure a database is connected via /api/connect before accessing schema endpoints.
+- **Table schema returns 404 Not Found**:
+  - Verify the table name exists and is properly escaped if it contains special characters.
+- **Internals endpoint fails**:
+  - Check database permissions and ensure SQLite supports the requested PRAGMA operations.
 
 Debugging tips:
 - Enable detailed logs via RUST_LOG=rust_sqlite_webui=debug,tower_http=debug.
 - Use curl or Postman to test endpoints and inspect headers and bodies.
 - Validate environment variables with dotenv or system environment.
+- **For schema issues, examine the sqlite_schema table directly to verify object existence**.
 
 **Section sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
+- [main.rs:26-37](file://backend/src/main.rs#L26-L37)
 - [connection.rs:62-109](file://backend/src/handlers/connection.rs#L62-L109)
 - [query.rs:101-201](file://backend/src/handlers/query.rs#L101-L201)
+- [metadata.rs:334-437](file://backend/src/handlers/metadata.rs#L334-L437)
 - [ai.rs:24-149](file://backend/src/handlers/ai.rs#L24-L149)
 
 ## Conclusion
-The backend provides a clear, modular API surface for managing SQLite databases and executing queries, with robust middleware protection and comprehensive error reporting. The health endpoint enables straightforward service monitoring. Following the established patterns in handlers/mod.rs and main.rs makes adding new endpoints straightforward and consistent.
+The backend provides a clear, modular API surface for managing SQLite databases and executing queries, with robust middleware protection and comprehensive error reporting. The health endpoint enables straightforward service monitoring. **The new schema exploration and introspection endpoints provide powerful tools for database analysis and debugging**. Following the established patterns in handlers/mod.rs and main.rs makes adding new endpoints straightforward and consistent.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -447,13 +579,13 @@ The backend provides a clear, modular API surface for managing SQLite databases 
 
 Example pattern references:
 - Handler definition and JSON I/O: [query.rs:12-25](file://backend/src/handlers/query.rs#L12-L25)
-- Route registration: [main.rs:52-58](file://backend/src/main.rs#L52-L58)
-- Module export: [mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
+- Route registration: [main.rs:61-70](file://backend/src/main.rs#L61-L70)
+- Module export: [mod.rs:1-12](file://backend/src/handlers/mod.rs#L1-L12)
 
 **Section sources**
 - [query.rs:12-25](file://backend/src/handlers/query.rs#L12-L25)
-- [main.rs:52-58](file://backend/src/main.rs#L52-L58)
-- [mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
+- [main.rs:61-70](file://backend/src/main.rs#L61-L70)
+- [mod.rs:1-12](file://backend/src/handlers/mod.rs#L1-L12)
 
 ### Testing Endpoints
 - Health check:
@@ -468,6 +600,15 @@ Example pattern references:
 - List tables:
   - GET /api/tables
   - Expect 200 OK with JSON array of table names or 400 if not connected.
+- **Database schema**:
+  - GET /api/schema
+  - Expect 200 OK with JSON containing objects array and combined DDL string.
+- **Table schema**:
+  - GET /api/schema/table?name=<table_name>
+  - Expect 200 OK with detailed table schema or 404 if table not found.
+- **SQLite internals**:
+  - GET /api/internals
+  - Expect 200 OK with database, connection, engine, and schema_entries data.
 - Execute query:
   - POST /api/query with JSON payload including sql.
   - Expect 200 OK with JSON result structure.
@@ -479,8 +620,9 @@ Authentication:
 - Include header x-api-key matching the configured API_KEY for all /api routes except /api/health.
 
 **Section sources**
-- [main.rs:52-62](file://backend/src/main.rs#L52-L62)
+- [main.rs:61-74](file://backend/src/main.rs#L61-L74)
 - [connection.rs:20-109](file://backend/src/handlers/connection.rs#L20-L109)
+- [metadata.rs:334-437](file://backend/src/handlers/metadata.rs#L334-L437)
 - [query.rs:101-201](file://backend/src/handlers/query.rs#L101-L201)
 - [ai.rs:24-149](file://backend/src/handlers/ai.rs#L24-L149)
 
@@ -493,7 +635,38 @@ Patterns to follow:
 References:
 - Validation example in connect handler: [connection.rs:62-83](file://backend/src/handlers/connection.rs#L62-L83)
 - Typed request/response models: [query.rs:12-25](file://backend/src/handlers/query.rs#L12-L25)
+- **Query parameter validation**: [metadata.rs:104-107](file://backend/src/handlers/metadata.rs#L104-L107)
 
 **Section sources**
 - [connection.rs:62-83](file://backend/src/handlers/connection.rs#L62-L83)
 - [query.rs:12-25](file://backend/src/handlers/query.rs#L12-L25)
+- [metadata.rs:104-107](file://backend/src/handlers/metadata.rs#L104-L107)
+
+### Schema Exploration API Reference
+The new schema exploration endpoints provide comprehensive database introspection capabilities:
+
+**GET /api/schema** - Database Schema Overview
+- Returns all user-defined objects (tables, views, indexes, triggers)
+- Provides combined DDL for all objects
+- Filters out internal SQLite objects (sqlite_*)
+
+**GET /api/schema/table?name=<table>** - Detailed Table Schema
+- Returns complete table structure including columns, types, constraints
+- Includes foreign key relationships and definitions
+- Lists all indexes with column mappings and properties
+- Shows trigger definitions associated with the table
+- Supports special characters and quoted identifiers
+
+**GET /api/internals** - SQLite Engine Internals
+- Database-level configuration (page_size, journal_mode, encoding, etc.)
+- Connection-specific settings (foreign_keys, busy_timeout, synchronous)
+- Engine information (sqlite_version, compile_options)
+- Complete sqlite_schema table contents for deep inspection
+
+All schema endpoints require proper database connection and return appropriate error codes for missing connections or invalid table names.
+
+**Section sources**
+- [metadata.rs:109-146](file://backend/src/handlers/metadata.rs#L109-L146)
+- [metadata.rs:148-268](file://backend/src/handlers/metadata.rs#L148-L268)
+- [metadata.rs:312-332](file://backend/src/handlers/metadata.rs#L312-L332)
+- [metadata.rs:334-437](file://backend/src/handlers/metadata.rs#L334-L437)

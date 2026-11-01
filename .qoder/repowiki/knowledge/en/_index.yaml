@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: master
 nodes_managed: true
-exported_at: "2026-11-01T05:07:14Z"
+exported_at: "2026-11-01T07:32:59Z"
 modules:
     "":
-        dir_name: Cublite SQLite Web UI Monorepo
-        title: Cublite SQLite Web UI Monorepo
+        dir_name: Cradlite Monorepo (Axum Backend + SolidJS Frontend)
+        title: Cradlite Monorepo (Axum Backend + SolidJS Frontend)
         scope:
             - README.md
             - README_CN.md
@@ -27,8 +27,8 @@ modules:
         depends_on: []
         related_to: []
     backend:
-        dir_name: Crablite Axum HTTP Server
-        title: Crablite Axum HTTP Server
+        dir_name: Crablite Axum Backend Server
+        title: Crablite Axum Backend Server
         scope:
             - backend/
         source_files: []
@@ -37,8 +37,8 @@ modules:
         related_to:
             - path: frontend
     frontend:
-        dir_name: Browser-based SQLite Management Frontend
-        title: Browser-based SQLite Management Frontend
+        dir_name: Crablite SQL Editor Frontend (SolidJS SPA)
+        title: Crablite SQL Editor Frontend (SolidJS SPA)
         scope:
             - frontend/
         source_files: []

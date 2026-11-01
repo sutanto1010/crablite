@@ -10,22 +10,23 @@
 - [ai.rs](file://backend/src/handlers/ai.rs)
 - [health.rs](file://backend/src/handlers/health.rs)
 - [Cargo.toml](file://backend/Cargo.toml)
+- [package.json](file://frontend/package.json)
 - [App.tsx](file://frontend/src/App.tsx)
 - [api.ts](file://frontend/src/lib/api.ts)
 - [store.ts](file://frontend/src/lib/store.ts)
 - [AuthModal.tsx](file://frontend/src/components/AuthModal.tsx)
 - [README.md](file://README.md)
+- [Dockerfile](file://Dockerfile)
+- [release.sh](file://release.sh)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated backend routing structure to reflect actual Axum router configuration
-- Enhanced security architecture section with detailed authentication middleware implementation
-- Added comprehensive database connection flow documentation with WAL mode verification
-- Expanded AI assistant integration details with OpenAI-compatible API support
-- Updated frontend component architecture to reflect Solid.js reactive patterns
-- Enhanced deployment topology section with Docker and containerization strategies
-- Improved performance considerations with specific optimization techniques
+- Updated project branding from 'rust-sqlite-webui' to 'crablite' throughout all references
+- Updated version management to reflect current version 26.11.4
+- Enhanced Docker deployment configuration with proper binary naming
+- Updated release process documentation to reflect new project structure
+- Maintained all architectural components and design patterns while updating branding
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -85,13 +86,13 @@ BE_AI --> LLM
 ```
 
 **Diagram sources**
-- [main.rs:52-65](file://backend/src/main.rs#L52-L65)
+- [main.rs:39-89](file://backend/src/main.rs#L39-L89)
 - [handlers/mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
 - [App.tsx:9-26](file://frontend/src/App.tsx#L9-L26)
 
 **Section sources**
 - [README.md:10-26](file://README.md#L10-L26)
-- [main.rs:35-73](file://backend/src/main.rs#L35-L73)
+- [main.rs:39-89](file://backend/src/main.rs#L39-L89)
 - [App.tsx:9-26](file://frontend/src/App.tsx#L9-L26)
 
 ## Core Components
@@ -112,8 +113,8 @@ BE_AI --> LLM
 - **Authentication Modal**: Prompts for API key when unauthorized access is detected.
 
 **Section sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
-- [main.rs:35-73](file://backend/src/main.rs#L35-L73)
+- [main.rs:26-37](file://backend/src/main.rs#L26-L37)
+- [main.rs:39-89](file://backend/src/main.rs#L39-L89)
 - [state.rs:5-8](file://backend/src/state.rs#L5-L8)
 - [handlers/mod.rs:1-10](file://backend/src/handlers/mod.rs#L1-L10)
 - [connection.rs:20-109](file://backend/src/handlers/connection.rs#L20-L109)
@@ -162,7 +163,7 @@ API-->>FE : Corrected SQL or error
 **Diagram sources**
 - [api.ts:36-75](file://frontend/src/lib/api.ts#L36-L75)
 - [store.ts:49-115](file://frontend/src/lib/store.ts#L49-L115)
-- [main.rs:52-65](file://backend/src/main.rs#L52-L65)
+- [main.rs:61-77](file://backend/src/main.rs#L61-L77)
 - [query.rs:101-200](file://backend/src/handlers/query.rs#L101-L200)
 - [ai.rs:24-148](file://backend/src/handlers/ai.rs#L24-L148)
 
@@ -190,10 +191,10 @@ BindPort --> Listen["Start serving requests with TraceLayer"]
 ```
 
 **Diagram sources**
-- [main.rs:35-73](file://backend/src/main.rs#L35-L73)
+- [main.rs:39-89](file://backend/src/main.rs#L39-L89)
 
 **Section sources**
-- [main.rs:35-73](file://backend/src/main.rs#L35-L73)
+- [main.rs:39-89](file://backend/src/main.rs#L39-L89)
 
 ### State Management
 The application state is designed for concurrent access patterns:
@@ -441,11 +442,11 @@ ValidateDB --> ConnectDB["Establish database connection"]
 ```
 
 **Diagram sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
+- [main.rs:26-37](file://backend/src/main.rs#L26-L37)
 - [connection.rs:62-69](file://backend/src/handlers/connection.rs#L62-L69)
 
 **Section sources**
-- [main.rs:22-33](file://backend/src/main.rs#L22-L33)
+- [main.rs:26-37](file://backend/src/main.rs#L26-L37)
 - [connection.rs:62-69](file://backend/src/handlers/connection.rs#L62-L69)
 
 ## Scalability and Deployment Topology

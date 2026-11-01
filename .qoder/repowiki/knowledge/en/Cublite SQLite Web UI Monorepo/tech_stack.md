@@ -1,1 +1,0 @@
-Rust + Axum + SQLx + Tokio for the backend; SolidJS + Vite + TailwindCSS + DaisyUI for the frontend; unified by a multi-stage Dockerfile using `node:24-alpine` and `rust:alpine` builders targeting a minimal Alpine runtime.

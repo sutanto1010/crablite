@@ -1,4 +1,0 @@
-- API functions in `lib/api.ts` accept an `apiKey` string and an optional `onUnauthorized` callback, and route 401 responses through a shared `handleResponse` helper rather than checking status inline.
-- Global application state is held as SolidJS `createSignal` pairs exported from `lib/store.ts`, and components read/write state exclusively through these signals instead of props drilling.
-- Components are declared as `const X: Component = () => (...)` using Solid's typed `Component` generic rather than function declarations or class components.
-- Styling uses Tailwind utility classes combined with DaisyUI semantic tokens (e.g. `bg-base-200`, `rounded-box`, `shadow-lg`) applied directly on JSX elements.

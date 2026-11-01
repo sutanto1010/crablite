@@ -1,1 +1,0 @@
-Single-binary Axum server exposing SQLite database management, raw query execution, and AI-assisted SQL correction endpoints behind an API-key middleware.

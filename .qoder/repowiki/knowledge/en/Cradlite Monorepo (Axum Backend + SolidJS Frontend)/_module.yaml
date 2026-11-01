@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: Cublite SQLite Web UI Monorepo
+title: Cradlite Monorepo (Axum Backend + SolidJS Frontend)
 scope:
     - README.md
     - README_CN.md

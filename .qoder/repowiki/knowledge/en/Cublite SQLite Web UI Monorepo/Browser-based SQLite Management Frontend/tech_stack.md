@@ -1,1 +1,0 @@
-SolidJS 1.9 + TypeScript 6, Vite 7 with vite-plugin-solid, Tailwind CSS v4 + DaisyUI v5, pnpm 10 as package manager.
