@@ -23,14 +23,18 @@ if [[ -z "$VERSION" ]]; then
   exit 1
 fi
 
-TAG="v${VERSION}"
-if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
-  echo "Error: local tag ${TAG} already exists." >&2
+REMOTE_URL=$(git remote get-url origin)
+REPO=$(printf '%s\n' "$REMOTE_URL" | sed -E -n 's#.*github\.com[:/]([^/]+/[^/]+)#\1#p')
+REPO=${REPO%.git}
+if [[ -z "$REPO" ]]; then
+  echo "Error: could not determine the GitHub repository from origin: ${REMOTE_URL}" >&2
   exit 1
 fi
+
+TAG="v${VERSION}"
+REMOTE_TAG_EXISTS=false
 if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-  echo "Error: remote tag ${TAG} already exists." >&2
-  exit 1
+  REMOTE_TAG_EXISTS=true
 fi
 
 gh auth status
@@ -58,11 +62,18 @@ cp backend/target/release/rust-sqlite-webui "${PACKAGE_DIR}/"
 cp -R frontend/dist/. "${PACKAGE_DIR}/dist/"
 tar -C "$WORK_DIR" -czf "$ARCHIVE" "$PACKAGE"
 
-echo "Creating and pushing ${TAG}..."
-git tag -a "$TAG" -m "Release ${TAG}"
-git push origin "$TAG"
+if [[ "$REMOTE_TAG_EXISTS" == true ]]; then
+  echo "Remote tag ${TAG} already exists; resuming release publishing..."
+else
+  echo "Creating and pushing ${TAG}..."
+  if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
+    git tag -a "$TAG" -m "Release ${TAG}"
+  fi
+  git push origin "$TAG"
+fi
 
-echo "Publishing GitHub release ${TAG}..."
+echo "Publishing GitHub release ${TAG} to ${REPO}..."
 gh release create "$TAG" "$ARCHIVE" \
+  --repo "$REPO" \
   --title "$TAG" \
   --generate-notes
