@@ -55,16 +55,19 @@ services:
 
 ### 配置
 
-- **DB files**: 数据库文件会在 `/app/db/` 目录下递归扫描。支持子目录路径（例如 `rust/sqlite.db`），可用于 Docker 卷挂载如 `./rust/data/db:/app/db/rust`。
+- **DB files**: 数据库文件会在 `DB_DIR` 指定的目录下递归扫描（默认值为 `db`，在 Docker 中即 `/app/db`）。支持子目录路径（例如 `rust/sqlite.db`），可用于 Docker 卷挂载如 `./rust/data/db:/app/db/rust`。
 
 - **环境变量**:
 | 变量名 | 默认值 | 说明 |
 | --- | --- | --- |
 | API_KEY | `your-super-secure-key` | 用于访问 WebUI 的认证密钥。|
+| DB_DIR | `db`（在 Docker 中为 `/app/db`） | 用于发现和存储 SQLite 数据库文件的目录。|
 | RUST_LOG | `rust_sqlite_webui=debug,tower_http=debug` | 日志级别配置。|
 | OPENAI_API_KEY | - | OpenAI API 密钥（AI 辅助功能必需）。|
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API 地址。|
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI 模型名称。|
+
+要在 Docker 中使用其他数据库目录，请设置 `DB_DIR` 并将数据卷挂载到相同路径，例如 `-e DB_DIR=/data -v $(pwd)/data:/data`。
 
 > **提示**: 开发环境下可在 `backend/` 目录创建 `.env` 文件配置上述变量。
 

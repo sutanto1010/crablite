@@ -10,6 +10,7 @@ use tower_http::trace::TraceLayer;
 use tower_http::services::{ServeDir};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -44,9 +45,14 @@ async fn main() {
     .with(tracing_subscriber::fmt::layer())
     .init();
 
+    let db_dir = std::env::var_os("DB_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("db"));
     let state = AppState {
         db: Arc::new(RwLock::new(None)),
+        db_dir,
     };
+    tracing::info!("database directory: {}", state.db_dir.display());
 
     // 构建应用路由
     let api_routes = Router::new()

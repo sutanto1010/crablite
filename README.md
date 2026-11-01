@@ -69,16 +69,19 @@ API_KEY=your_secret_key ./rust-sqlite-webui
 
 ### Configuration
 
-**DB files**: Database files are scanned recursively under `/app/db/`. Subdirectory paths (e.g., `rust/sqlite.db`) are supported for Docker volume mounts like `./rust/data/db:/app/db/rust`. |
+**DB files**: Database files are scanned recursively under `DB_DIR` (default: `db`, which is `/app/db` in Docker). Subdirectory paths (e.g., `rust/sqlite.db`) are supported for Docker volume mounts like `./rust/data/db:/app/db/rust`.
 
  **Environment Variables**:
 | Variable | Default | Description |
 | --- | --- | --- |
 | API_KEY | `your-super-secure-key` | Authentication key for accessing the WebUI. |
+| DB_DIR | `db` (`/app/db` in Docker) | Directory used to discover and store SQLite database files. |
 | RUST_LOG | `rust_sqlite_webui=debug,tower_http=debug` | Logging level configuration. |
 | OPENAI_API_KEY | - | OpenAI API key (required for AI assistant). |
 | OPENAI_BASE_URL | `https://api.openai.com/v1` | OpenAI API base URL. |
 | OPENAI_MODEL | `gpt-5.4-mini` | OpenAI model name. |
+
+To use a different database directory in Docker, set `DB_DIR` and mount your volume at the same path, for example `-e DB_DIR=/data -v $(pwd)/data:/data`.
 
 > **Tip**: For development, create a `.env` file in `backend/` directory to configure these variables.
 

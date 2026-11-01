@@ -66,7 +66,7 @@ rust-sqlite-webui/
 - **API**:
   - `POST /api/connect`: 连接到本地 SQLite 文件。
     - **Request**: `{ "path": "test.db", "create": true }`
-  - `GET /api/db-files`: 列出 `./db` 目录下的可用数据库文件。
+  - `GET /api/db-files`: 列出 `DB_DIR` 目录下的可用数据库文件（默认为 `./db`）。
   - `GET /api/health`: 健康检查。
 
 ### 4.2 数据库元数据
@@ -96,7 +96,7 @@ rust-sqlite-webui/
 - **认证**: 所有 API 请求（除健康检查外）都需要 `x-api-key` 请求头。
   - 密钥通过 `API_KEY` 环境变量设置。
   - 默认值: `your-super-secure-key`。
-- **文件访问控制**: 数据库文件仅限于 `./db` 目录。已阻止目录遍历（例如 `../`）。
+- **文件访问控制**: 数据库文件仅限于 `DB_DIR` 目录（默认为 `./db`）。已阻止目录遍历（例如 `../`）。
 
 ## 5. UI/UX 设计草图
 

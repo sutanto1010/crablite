@@ -17,10 +17,10 @@ pub struct ConnectRequest {
     pub create: bool,
 }
 
-pub async fn list_dbs() -> impl IntoResponse {
-    let db_dir = Path::new("db");
+pub async fn list_dbs(State(state): State<AppState>) -> impl IntoResponse {
+    let db_dir = &state.db_dir;
     if !db_dir.exists() {
-        if let Err(e) = std::fs::create_dir(db_dir) {
+        if let Err(e) = std::fs::create_dir_all(db_dir) {
              tracing::error!("Failed to create db directory: {}", e);
              return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create db directory").into_response();
         }
@@ -30,7 +30,7 @@ pub async fn list_dbs() -> impl IntoResponse {
     let mut files = Vec::new();
 
     // Recursively scan all subdirectories for .db files
-    fn scan_db_files(dir: &Path, result: &mut Vec<String>) {
+    fn scan_db_files(dir: &Path, root: &Path, result: &mut Vec<String>) {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -40,22 +40,22 @@ pub async fn list_dbs() -> impl IntoResponse {
                             // Exclude WAL/SHM files and only match .db extension
                             if !name.ends_with("-wal") && !name.ends_with("-shm")
                                && name.ends_with(".db") {
-                                // Record relative path from db/ directory root
-                                if let Ok(rel) = path.strip_prefix(dir.parent().unwrap_or(dir)) {
+                                // Record paths relative to the configured database directory
+                                if let Ok(rel) = path.strip_prefix(root) {
                                     result.push(rel.to_string_lossy().to_string());
                                 }
                             }
                         }
                     } else if file_type.is_dir() {
                         // Recurse into subdirectories
-                        scan_db_files(&path, result);
+                        scan_db_files(&path, root, result);
                     }
                 }
             }
         }
     }
 
-    scan_db_files(db_dir, &mut files);
+    scan_db_files(db_dir, db_dir, &mut files);
     Json(files).into_response()
 }
 
@@ -68,9 +68,9 @@ pub async fn connect_db(
          return (StatusCode::BAD_REQUEST, "Invalid path: directory traversal not allowed").into_response();
     }
 
-    let db_dir = Path::new("db");
+    let db_dir = &state.db_dir;
     if !db_dir.exists() {
-         if let Err(e) = std::fs::create_dir(db_dir) {
+         if let Err(e) = std::fs::create_dir_all(db_dir) {
              tracing::error!("Failed to create db directory: {}", e);
              return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create db directory").into_response();
         }
