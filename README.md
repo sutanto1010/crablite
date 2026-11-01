@@ -54,6 +54,19 @@ services:
       - API_KEY=your_secret_key
 ```
 
+### Prebuilt Binary (Linux/macOS)
+
+1. Download the archive for your operating system and architecture from [GitHub Releases](https://github.com/sutanto1010/crablite/releases).
+2. Extract the archive and run the application from the extracted directory:
+
+```bash
+tar -xzf rust-sqlite-webui-v<VERSION>-<TARGET>.tar.gz
+cd rust-sqlite-webui-v<VERSION>-<TARGET>
+API_KEY=your_secret_key ./rust-sqlite-webui
+```
+
+`<TARGET>` is the Rust target triple, such as `x86_64-unknown-linux-gnu` or `aarch64-apple-darwin`. Keep `dist/` in the extracted directory because it contains the WebUI assets. Open `http://localhost:3000` after the application starts.
+
 ### Configuration
 
 | **DB files**: Database files are scanned recursively under `/app/db/`. Subdirectory paths (e.g., `rust/sqlite.db`) are supported for Docker volume mounts like `./rust/data/db:/app/db/rust`. |
@@ -110,6 +123,24 @@ cargo build --release
 ```
 
 The release binary is located in `backend/target/release`.
+
+## How to Release
+
+Install and authenticate the [GitHub CLI](https://cli.github.com/) before publishing. Pushing to `master` also triggers the existing Docker image publish workflow.
+
+1. Update `version` in `backend/Cargo.toml`, update the lockfile, and commit and push the changes:
+
+```bash
+cargo check --manifest-path backend/Cargo.toml
+```
+
+2. Run the release script from a clean worktree:
+
+```bash
+./release.sh
+```
+
+The script builds the frontend and backend, packages the native binary with the WebUI assets, pushes the `v<VERSION>` tag, and publishes the archive to GitHub Releases. To add archives built on other platforms to an existing release, use `gh release upload "v${VERSION}" <ARCHIVE>`.
 
 ## Documentation
 
