@@ -1,0 +1,1 @@
+Dev server runs via `pnpm start` (alias for `vite`); production build via `pnpm build` (alias for `vite build`). Requires a running backend exposing `/api/*` endpoints since all fetches target relative paths under `./api/`.

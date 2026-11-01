@@ -1,0 +1,1 @@
+Binary listens on `0.0.0.0:3000`; requires a `dist/` directory for the frontend fallback served via `ServeDir::new("dist")`; an `API_KEY` environment variable (or `.env`) controls the `x-api-key` header check; `RUST_LOG` controls tracing verbosity.

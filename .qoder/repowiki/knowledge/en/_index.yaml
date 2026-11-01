@@ -1,0 +1,48 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: master
+nodes_managed: true
+exported_at: "2026-11-01T03:26:09Z"
+modules:
+    "":
+        dir_name: SQLite WebUI Monorepo
+        title: SQLite WebUI Monorepo
+        scope:
+            - README.md
+            - README_CN.md
+            - Dockerfile
+            - .dockerignore
+            - .gitignore
+            - rust-sqlite-webui.code-workspace
+            - doc/
+            - .github/
+            - .trae/
+            - introduction.jpg
+            - screenshot.png
+        source_files: []
+        children:
+            - backend
+            - frontend
+        depends_on: []
+        related_to: []
+    backend:
+        dir_name: SQLite Web UI Backend API
+        title: SQLite Web UI Backend API
+        scope:
+            - backend/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: frontend
+    frontend:
+        dir_name: SQLite Web UI Frontend (SolidJS + Vite)
+        title: SQLite Web UI Frontend (SolidJS + Vite)
+        scope:
+            - frontend/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: backend

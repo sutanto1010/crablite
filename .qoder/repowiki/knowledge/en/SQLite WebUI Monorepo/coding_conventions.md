@@ -1,0 +1,2 @@
+- Environment-driven configuration is centralized at the repo root level (API_KEY, OPENAI_* variables) and consumed by the backend; the frontend reads no server-side config.
+- Build artifacts from one child are never committed — the Dockerfile rebuilds both frontend and backend from source, and release archives are assembled by copying `frontend/dist` alongside the compiled binary.
