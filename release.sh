@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-for command_name in cargo gh git pnpm rustc tar; do
+for command_name in cargo cargo-zigbuild gh git pnpm rustc rustup tar zip zig; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "Error: required command not found: $command_name" >&2
     exit 1
@@ -46,21 +46,64 @@ echo "Building frontend..."
   pnpm build
 )
 
-echo "Building backend ${VERSION}..."
-cargo build --manifest-path backend/Cargo.toml --release --locked
-
-TARGET=$(rustc -vV | sed -n 's/^host: //p')
-PACKAGE="rust-sqlite-webui-v${VERSION}-${TARGET}"
+HOST_TARGET=$(rustc -vV | sed -n 's/^host: //p')
+CROSS_TARGETS=(
+  x86_64-unknown-linux-musl
+  aarch64-unknown-linux-musl
+  x86_64-pc-windows-gnu
+  aarch64-pc-windows-gnullvm
+)
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
-PACKAGE_DIR="${WORK_DIR}/${PACKAGE}"
-ARCHIVE="${WORK_DIR}/${PACKAGE}.tar.gz"
+ARCHIVES=()
 
-echo "Packaging ${PACKAGE}.tar.gz..."
-mkdir -p "${PACKAGE_DIR}/dist"
-cp backend/target/release/rust-sqlite-webui "${PACKAGE_DIR}/"
-cp -R frontend/dist/. "${PACKAGE_DIR}/dist/"
-tar -C "$WORK_DIR" -czf "$ARCHIVE" "$PACKAGE"
+build_and_package() {
+  local target=$1
+  local binary_name=rust-sqlite-webui
+  local binary_path
+  local package="rust-sqlite-webui-v${VERSION}-${target}"
+  local package_dir="${WORK_DIR}/${package}"
+  local archive="${WORK_DIR}/${package}.tar.gz"
+
+  if [[ "$target" == "$HOST_TARGET" ]]; then
+    echo "Building backend ${VERSION} for ${target} (native)..."
+    cargo build --manifest-path backend/Cargo.toml --release --locked
+    binary_path="backend/target/release/${binary_name}"
+  else
+    echo "Building backend ${VERSION} for ${target}..."
+    rustup target add "$target"
+    cargo zigbuild --manifest-path backend/Cargo.toml --release --locked --target "$target"
+    binary_path="backend/target/${target}/release/${binary_name}"
+  fi
+
+  if [[ "$target" == *-windows-* ]]; then
+    binary_name+=".exe"
+    binary_path+=".exe"
+    archive="${WORK_DIR}/${package}.zip"
+  fi
+
+  echo "Packaging ${package}..."
+  mkdir -p "${package_dir}/dist"
+  cp "$binary_path" "${package_dir}/${binary_name}"
+  cp -R frontend/dist/. "${package_dir}/dist/"
+
+  if [[ "$target" == *-windows-* ]]; then
+    (
+      cd "$WORK_DIR"
+      zip -q -r "$archive" "$package"
+    )
+  else
+    tar -C "$WORK_DIR" -czf "$archive" "$package"
+  fi
+  ARCHIVES+=("$archive")
+}
+
+build_and_package "$HOST_TARGET"
+for target in "${CROSS_TARGETS[@]}"; do
+  if [[ "$target" != "$HOST_TARGET" ]]; then
+    build_and_package "$target"
+  fi
+done
 
 if [[ "$REMOTE_TAG_EXISTS" == true ]]; then
   echo "Remote tag ${TAG} already exists; resuming release publishing..."
@@ -72,8 +115,13 @@ else
   git push origin "$TAG"
 fi
 
-echo "Publishing GitHub release ${TAG} to ${REPO}..."
-gh release create "$TAG" "$ARCHIVE" \
-  --repo "$REPO" \
-  --title "$TAG" \
-  --generate-notes
+if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+  echo "Uploading archives to existing GitHub release ${TAG}..."
+  gh release upload "$TAG" "${ARCHIVES[@]}" --repo "$REPO" --clobber
+else
+  echo "Publishing GitHub release ${TAG} to ${REPO}..."
+  gh release create "$TAG" "${ARCHIVES[@]}" \
+    --repo "$REPO" \
+    --title "$TAG" \
+    --generate-notes
+fi

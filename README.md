@@ -69,9 +69,9 @@ API_KEY=your_secret_key ./rust-sqlite-webui
 
 ### Configuration
 
-| **DB files**: Database files are scanned recursively under `/app/db/`. Subdirectory paths (e.g., `rust/sqlite.db`) are supported for Docker volume mounts like `./rust/data/db:/app/db/rust`. |
+**DB files**: Database files are scanned recursively under `/app/db/`. Subdirectory paths (e.g., `rust/sqlite.db`) are supported for Docker volume mounts like `./rust/data/db:/app/db/rust`. |
 
-- **Environment Variables**:
+ **Environment Variables**:
 | Variable | Default | Description |
 | --- | --- | --- |
 | API_KEY | `your-super-secure-key` | Authentication key for accessing the WebUI. |

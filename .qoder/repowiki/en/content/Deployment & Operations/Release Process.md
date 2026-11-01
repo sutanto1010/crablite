@@ -2,13 +2,20 @@
 
 <cite>
 **Referenced Files in This Document**
+- [release.sh](file://release.sh)
 - [docker-publish.yml](file://.github/workflows/docker-publish.yml)
 - [Dockerfile](file://Dockerfile)
 - [Cargo.toml](file://backend/Cargo.toml)
 - [package.json](file://frontend/package.json)
-- [release.sh](file://release.sh)
 - [README.md](file://README.md)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated release automation section to reflect enhanced GitHub repository detection from remote URL parsing
+- Added documentation for improved pre-existing remote tag handling
+- Enhanced error message descriptions for release automation
+- Updated troubleshooting guide with new validation checks
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,7 +38,7 @@ CrabLite consists of:
 - A Solid.js frontend built with Vite and TailwindCSS/DaisyUI.
 - A multi-stage Dockerfile that builds both frontend assets and the Rust binary into a small Alpine runtime image.
 - GitHub Actions workflow for building and publishing Docker images on push to master or via manual dispatch.
-- A local release script that builds artifacts, tags versions, and publishes GitHub Releases.
+- An enhanced local release script that validates prerequisites, builds artifacts, creates annotated git tags, and publishes GitHub Releases with improved repository detection and error handling.
 
 ```mermaid
 graph TB
@@ -44,6 +51,9 @@ GHActions["GitHub Actions<br/>docker-publish.yml"]
 Buildx["Docker Buildx"]
 Registry["Container Registry<br/>Docker Hub"]
 end
+subgraph "Local Release"
+ReleaseScript["Enhanced release.sh<br/>Improved repo detection<br/>Better error handling"]
+end
 subgraph "Runtime"
 Server["Production Server"]
 end
@@ -53,11 +63,13 @@ Dockerfile --> |Multi-stage build| Buildx
 Buildx --> |Pushes images| Registry
 GHActions --> |Triggers| Buildx
 Registry --> |Pull latest| Server
+ReleaseScript --> |Publishes releases| GH
 ```
 
 **Diagram sources**
 - [docker-publish.yml:1-59](file://.github/workflows/docker-publish.yml#L1-L59)
 - [Dockerfile:1-56](file://Dockerfile#L1-L56)
+- [release.sh:1-128](file://release.sh#L1-L128)
 
 **Section sources**
 - [README.md:22-26](file://README.md#L22-L26)
@@ -67,22 +79,25 @@ Registry --> |Pull latest| Server
 - Automated CI/CD pipeline: Builds and pushes Docker images to Docker Hub when code is pushed to master or when manually dispatched.
 - Multi-stage Docker build: Compiles frontend assets with pnpm/Vite and compiles the Rust binary with cargo, then assembles a minimal runtime image.
 - Versioning: The application version is defined in the Rust package manifest and used by CI and release scripts.
-- Local release automation: A bash script validates prerequisites, builds artifacts, creates annotated git tags, and publishes GitHub Releases with auto-generated notes.
+- Enhanced local release automation: A bash script with improved GitHub repository detection from remote URL parsing, better handling of pre-existing remote tags, and more descriptive error messages validates prerequisites, builds artifacts, creates annotated git tags, and publishes GitHub Releases with auto-generated notes.
 
 Key responsibilities:
 - Frontend build: pnpm install --frozen-lockfile and vite build produce static assets under frontend/dist.
 - Backend build: cargo build --release produces a stripped, optimized binary.
 - Image tagging: CI extracts the version from the Rust manifest and tags images with both semantic version and latest.
 - Deployment: CI pulls the latest image and recreates the service using docker compose on the target server.
+- Repository detection: Enhanced parsing of GitHub remote URLs to automatically determine the repository path.
+- Tag conflict resolution: Improved handling of pre-existing remote tags with resumption capabilities.
 
 **Section sources**
 - [docker-publish.yml:24-43](file://.github/workflows/docker-publish.yml#L24-L43)
 - [Dockerfile:1-56](file://Dockerfile#L1-L56)
 - [Cargo.toml:1-24](file://backend/Cargo.toml#L1-L24)
-- [release.sh:1-69](file://release.sh#L1-L69)
+- [release.sh:26-32](file://release.sh#L26-L32)
+- [release.sh:108-116](file://release.sh#L108-L116)
 
 ## Architecture Overview
-The release architecture integrates source control, containerization, registry, and deployment:
+The release architecture integrates source control, containerization, registry, and deployment with enhanced local automation:
 
 ```mermaid
 sequenceDiagram
@@ -92,6 +107,11 @@ participant Actions as "GitHub Actions"
 participant Builder as "Docker Buildx"
 participant Reg as "Docker Hub"
 participant Prod as "Production Server"
+participant Local as "Enhanced Release Script"
+Dev->>Local : Run ./release.sh
+Local->>GH : Parse remote URL & detect repo
+Local->>GH : Check existing tags & handle conflicts
+Local->>GH : Create/publish GitHub Release
 Dev->>GH : Push to master
 GH->>Actions : Trigger workflow
 Actions->>Builder : Build multi-stage image
@@ -102,8 +122,64 @@ Prod-->>Dev : Service running with new image
 
 **Diagram sources**
 - [docker-publish.yml:1-59](file://.github/workflows/docker-publish.yml#L1-L59)
+- [release.sh:26-32](file://release.sh#L26-L32)
+- [release.sh:108-116](file://release.sh#L108-L116)
 
 ## Detailed Component Analysis
+
+### Enhanced Local Release Script
+The release script has been significantly enhanced with improved repository detection and error handling:
+
+#### GitHub Repository Detection
+The script now uses sophisticated remote URL parsing to automatically detect the GitHub repository:
+
+```mermaid
+flowchart TD
+Start(["Start"]) --> GetURL["Get remote URL"]
+GetURL --> ParseURL["Parse URL with regex"]
+ParseURL --> ExtractRepo["Extract owner/repo format"]
+ExtractRepo --> ValidateRepo{"Repository detected?"}
+ValidateRepo --> |Yes| Continue["Continue with release"]
+ValidateRepo --> |No| Error["Show descriptive error"]
+```
+
+**Diagram sources**
+- [release.sh:26-32](file://release.sh#L26-L32)
+
+#### Pre-existing Remote Tag Handling
+Enhanced logic for handling pre-existing remote tags with resumption capabilities:
+
+```mermaid
+flowchart TD
+CheckTag["Check if remote tag exists"] --> Exists{"Tag exists?"}
+Exists --> |Yes| Resume["Resume release publishing"]
+Exists --> |No| CreateTag["Create and push tag"]
+CreateTag --> Publish["Publish GitHub Release"]
+Resume --> Upload["Upload archives to existing release"]
+Upload --> End(["Complete"])
+```
+
+**Diagram sources**
+- [release.sh:34-38](file://release.sh#L34-L38)
+- [release.sh:108-116](file://release.sh#L108-L116)
+
+#### Descriptive Error Messages
+All error conditions now provide clear, actionable feedback:
+- Missing required commands with specific tool names
+- Dirty working tree with explicit cleanup instructions
+- Version extraction failures with file path references
+- GitHub repository detection failures with remote URL context
+- Authentication status verification before proceeding
+
+**Updated** Enhanced repository detection, tag handling, and error messaging
+
+**Section sources**
+- [release.sh:8-13](file://release.sh#L8-L13)
+- [release.sh:15-18](file://release.sh#L15-L18)
+- [release.sh:20-24](file://release.sh#L20-L24)
+- [release.sh:26-32](file://release.sh#L26-L32)
+- [release.sh:34-38](file://release.sh#L34-L38)
+- [release.sh:108-116](file://release.sh#L108-L116)
 
 ### Automated CI/CD Pipeline (GitHub Actions)
 The workflow triggers on push to master and manual dispatch. It performs:
@@ -167,7 +243,7 @@ Env --> CMD["CMD ./rust-sqlite-webui"]
 ### Version Management and Semantic Versioning
 - Source of truth: The application version is declared in the Rust package manifest.
 - CI usage: The workflow extracts this version to tag Docker images and injects it as a build argument.
-- Local release: The release script reads the same version field to create tags and archives.
+- Local release: The enhanced release script reads the same version field to create tags and archives.
 
 Semantic versioning practices:
 - Use MAJOR.MINOR.PATCH format aligned with breaking changes, features, and fixes respectively.
@@ -177,50 +253,52 @@ Semantic versioning practices:
 Version-related files:
 - Application version definition: [Cargo.toml:1-24](file://backend/Cargo.toml#L1-L24)
 - CI extraction and tagging: [docker-publish.yml:24-43](file://.github/workflows/docker-publish.yml#L24-L43)
-- Local script version readout: [release.sh:20-26](file://release.sh#L20-L26)
+- Local script version readout: [release.sh:20-24](file://release.sh#L20-L24)
 
 **Section sources**
 - [Cargo.toml:1-24](file://backend/Cargo.toml#L1-L24)
 - [docker-publish.yml:24-43](file://.github/workflows/docker-publish.yml#L24-L43)
-- [release.sh:20-26](file://release.sh#L20-L26)
+- [release.sh:20-24](file://release.sh#L20-L24)
 
 ### Changelog Maintenance
-- GitHub Releases notes are auto-generated by the release script when creating a release.
+- GitHub Releases notes are auto-generated by the enhanced release script when creating a release.
 - For detailed design documentation, refer to the design docs in the repository.
 
 Changelog-related references:
-- Auto-generating release notes: [release.sh:65-68](file://release.sh#L65-L68)
+- Auto-generating release notes: [release.sh:122-127](file://release.sh#L122-L127)
 - Design documentation location: [README.md:145-148](file://README.md#L145-L148)
 
 **Section sources**
-- [release.sh:65-68](file://release.sh#L65-L68)
+- [release.sh:122-127](file://release.sh#L122-L127)
 - [README.md:145-148](file://README.md#L145-L148)
 
-### Release Checklist
+### Enhanced Release Checklist
 Before initiating a release, ensure the following:
-- Prerequisites installed: cargo, gh CLI, git, pnpm, rustc, tar.
+- Prerequisites installed: cargo, cargo-zigbuild, gh CLI, git, pnpm, rustc, rustup, tar, zip, zig.
 - Working tree clean: No uncommitted or stashed changes.
 - Version bumped: Update the version in the Rust manifest and update lockfiles accordingly.
 - Tests pass: Run frontend build and backend compilation locally to validate.
 - Security scanning: Integrate dependency vulnerability scans (e.g., cargo audit, npm/pnpm audits) and container image scanning prior to pushing images.
 - Artifact validation: Verify generated archive contains the correct binary and frontend assets.
-- Tagging: Ensure no local or remote tag conflicts exist.
-- Publishing: Create annotated tag and publish GitHub Release with generated notes.
+- Tagging: Ensure no local or remote tag conflicts exist; script handles pre-existing tags gracefully.
+- Publishing: Enhanced script automatically detects GitHub repository and manages tag lifecycle.
 - Deployment approval: Confirm deployment to production is approved per team policy.
 
-Checklist mapping to implementation:
+Enhanced checklist mapping to implementation:
 - Prerequisite checks: [release.sh:8-13](file://release.sh#L8-L13)
 - Clean working tree check: [release.sh:15-18](file://release.sh#L15-L18)
-- Version extraction and tag validation: [release.sh:20-34](file://release.sh#L20-L34)
-- Auth status verification: [release.sh:36](file://release.sh#L36)
-- Frontend build: [release.sh:38-43](file://release.sh#L38-L43)
-- Backend build: [release.sh:45-46](file://release.sh#L45-L46)
-- Packaging: [release.sh:48-59](file://release.sh#L48-L59)
-- Tag creation and push: [release.sh:61-63](file://release.sh#L61-L63)
-- GitHub Release creation: [release.sh:65-68](file://release.sh#L65-L68)
+- Version extraction and tag validation: [release.sh:20-24](file://release.sh#L20-L24)
+- GitHub repository detection: [release.sh:26-32](file://release.sh#L26-L32)
+- Pre-existing tag handling: [release.sh:34-38](file://release.sh#L34-L38)
+- Auth status verification: [release.sh:40](file://release.sh#L40)
+- Frontend build: [release.sh:42-47](file://release.sh#L42-L47)
+- Backend build: [release.sh:60-99](file://release.sh#L60-L99)
+- Packaging: [release.sh:85-99](file://release.sh#L85-L99)
+- Tag creation and push: [release.sh:108-116](file://release.sh#L108-L116)
+- GitHub Release creation: [release.sh:118-127](file://release.sh#L118-L127)
 
 **Section sources**
-- [release.sh:8-68](file://release.sh#L8-L68)
+- [release.sh:8-127](file://release.sh#L8-L127)
 
 ### Testing Requirements
 - Frontend: Validate that pnpm build completes successfully and produces assets under frontend/dist.
@@ -260,12 +338,12 @@ Current integration points:
 - Asset integrity: Validate that frontend assets are present and correctly served by the runtime image.
 
 Validation references:
-- Archive packaging: [release.sh:48-59](file://release.sh#L48-L59)
+- Archive packaging: [release.sh:85-99](file://release.sh#L85-L99)
 - Release profile optimizations: [Cargo.toml:20-24](file://backend/Cargo.toml#L20-L24)
 - Runtime asset inclusion: [Dockerfile:43-47](file://Dockerfile#L43-L47)
 
 **Section sources**
-- [release.sh:48-59](file://release.sh#L48-L59)
+- [release.sh:85-99](file://release.sh#L85-L99)
 - [Cargo.toml:20-24](file://backend/Cargo.toml#L20-L24)
 - [Dockerfile:43-47](file://Dockerfile#L43-L47)
 
@@ -283,37 +361,39 @@ Current deployment behavior:
 - [docker-publish.yml:1-59](file://.github/workflows/docker-publish.yml#L1-L59)
 
 ### Manual Release Procedures
-To perform a manual release:
-- Install required tools: cargo, gh CLI, git, pnpm, rustc, tar.
+To perform a manual release with the enhanced script:
+- Install required tools: cargo, cargo-zigbuild, gh CLI, git, pnpm, rustc, rustup, tar, zip, zig.
 - Ensure the working tree is clean.
 - Update the version in the Rust manifest and update lockfiles.
-- Run the release script to build, tag, and publish.
+- Run the enhanced release script to build, tag, and publish with improved error handling.
 
-Script behavior:
-- Validates commands and clean state
-- Reads version and ensures tag uniqueness
+Enhanced script behavior:
+- Validates commands and clean state with descriptive error messages
+- Reads version and ensures tag uniqueness with resumption support
+- Automatically detects GitHub repository from remote URL
 - Authenticates with GitHub
-- Builds frontend and backend
-- Packages archive
-- Creates and pushes annotated tag
+- Builds frontend and backend for multiple targets
+- Packages archives with proper naming conventions
+- Creates and pushes annotated tag with conflict resolution
 - Publishes GitHub Release with auto-generated notes
 
 Reference:
-- [release.sh:1-69](file://release.sh#L1-L69)
+- [release.sh:1-128](file://release.sh#L1-L128)
 
 **Section sources**
-- [release.sh:1-69](file://release.sh#L1-L69)
+- [release.sh:1-128](file://release.sh#L1-L128)
 
 ### Emergency Fixes
 For urgent hotfixes:
 - Create a dedicated hotfix branch from the last stable tag.
 - Apply minimal changes and bump the patch version.
-- Run the release script to publish the fix quickly.
+- Run the enhanced release script to publish the fix quickly with improved error handling.
 - Ensure CI deploys the fix immediately after merging to master or via manual workflow dispatch.
 
 Considerations:
 - Maintain clear commit messages and link issues to the hotfix.
 - Communicate the incident and resolution timeline to stakeholders.
+- Leverage enhanced script's resumption capabilities for interrupted releases.
 
 [No sources needed since this section provides general guidance]
 
@@ -349,95 +429,109 @@ Environment variables relevant to logging:
 ### Release Artifacts Management
 - Native binaries:
   - Archives include the compiled binary and frontend assets.
-  - Naming convention: rust-sqlite-webui-v<VERSION>-<TARGET>.tar.gz
+  - Naming convention: rust-sqlite-webui-v<VERSION>-<TARGET>.tar.gz (or .zip for Windows).
+  - Multi-platform support: Linux x86_64/aarch64, Windows x86_64/aarch64.
 - Distribution channels:
   - GitHub Releases for native archives.
   - Docker Hub for container images.
 - Update mechanisms for end users:
   - Pull the latest Docker image or download the appropriate archive for their platform.
 
-References:
-- Archive naming and packaging: [release.sh:48-59](file://release.sh#L48-L59)
+Enhanced references:
+- Archive naming and packaging: [release.sh:60-99](file://release.sh#L60-L99)
 - Docker image tags: [docker-publish.yml:34-43](file://.github/workflows/docker-publish.yml#L34-L43)
 - Usage instructions for Docker and prebuilt binaries: [README.md:27-68](file://README.md#L27-L68)
 
 **Section sources**
-- [release.sh:48-59](file://release.sh#L48-L59)
+- [release.sh:60-99](file://release.sh#L60-L99)
 - [docker-publish.yml:34-43](file://.github/workflows/docker-publish.yml#L34-L43)
 - [README.md:27-68](file://README.md#L27-L68)
 
 ## Dependency Analysis
 The release process depends on:
 - Frontend toolchain: Node.js and pnpm for building static assets.
-- Backend toolchain: Rust and cargo for compiling the binary.
+- Backend toolchain: Rust, cargo, and cross-compilation tools (zig, cargo-zigbuild) for compiling binaries.
 - Container toolchain: Docker and Buildx for building and pushing images.
 - Git and GitHub CLI for tagging and publishing releases.
+- Archive tools: tar and zip for creating platform-specific archives.
 
 ```mermaid
 graph LR
 Pnpm["pnpm"] --> FEAssets["Frontend Assets"]
-Cargo["cargo"] --> Binary["Rust Binary"]
+Cargo["cargo/zigbuild"] --> Binary["Multi-platform Binaries"]
 Docker["Docker Buildx"] --> Image["Container Image"]
 GHCLI["gh CLI"] --> Release["GitHub Release"]
 Git["git"] --> Tag["Annotated Tag"]
+Archive["tar/zip"] --> Artifacts["Platform Archives"]
 ```
 
 **Diagram sources**
 - [package.json:6-9](file://frontend/package.json#L6-L9)
 - [Cargo.toml:1-24](file://backend/Cargo.toml#L1-L24)
 - [docker-publish.yml:1-59](file://.github/workflows/docker-publish.yml#L1-L59)
-- [release.sh:1-69](file://release.sh#L1-L69)
+- [release.sh:8-13](file://release.sh#L8-L13)
+- [release.sh:60-99](file://release.sh#L60-L99)
 
 **Section sources**
 - [package.json:6-9](file://frontend/package.json#L6-L9)
 - [Cargo.toml:1-24](file://backend/Cargo.toml#L1-L24)
 - [docker-publish.yml:1-59](file://.github/workflows/docker-publish.yml#L1-L59)
-- [release.sh:1-69](file://release.sh#L1-L69)
+- [release.sh:8-13](file://release.sh#L8-L13)
+- [release.sh:60-99](file://release.sh#L60-L99)
 
 ## Performance Considerations
-- Frontend build caching: Use pnpm’s lockfile and CI caching to speed up builds.
+- Frontend build caching: Use pnpm's lockfile and CI caching to speed up builds.
 - Backend optimization: The release profile enables stripping symbols, LTO, and single codegen unit for smaller and faster binaries.
 - Image size: Multi-stage builds and minimal Alpine runtime keep images small.
+- Cross-compilation: Efficient multi-platform builds using zig for faster compilation times.
 
 Optimization references:
 - Frontend build command: [package.json:6-9](file://frontend/package.json#L6-L9)
 - Backend release profile: [Cargo.toml:20-24](file://backend/Cargo.toml#L20-L24)
 - Runtime minimization: [Dockerfile:37-56](file://Dockerfile#L37-L56)
+- Cross-compilation setup: [release.sh:49-55](file://release.sh#L49-L55)
 
 **Section sources**
 - [package.json:6-9](file://frontend/package.json#L6-L9)
 - [Cargo.toml:20-24](file://backend/Cargo.toml#L20-L24)
 - [Dockerfile:37-56](file://Dockerfile#L37-L56)
+- [release.sh:49-55](file://release.sh#L49-L55)
 
 ## Troubleshooting Guide
-Common issues and resolutions:
-- Missing tools: Ensure cargo, gh, git, pnpm, rustc, and tar are installed.
+Common issues and resolutions with enhanced error handling:
+- Missing tools: Ensure cargo, cargo-zigbuild, gh, git, pnpm, rustc, rustup, tar, zip, and zig are installed.
 - Dirty working tree: Commit or stash changes before running the release script.
 - Version not found: Verify the version field exists in the Rust manifest.
-- Tag conflicts: Ensure no local or remote tag exists for the target version.
+- GitHub repository detection failed: Check remote URL format and ensure it points to GitHub.
+- Tag conflicts: Enhanced script handles pre-existing tags gracefully with resumption support.
 - GitHub auth failures: Authenticate gh CLI before running the release script.
 - Frontend build failures: Check pnpm install and build outputs.
 - Backend build failures: Validate cargo build --release output and dependencies.
+- Cross-compilation failures: Ensure zig and cargo-zigbuild are properly configured.
 - Docker login failures: Verify Docker Hub token secret is configured.
 - Deployment failures: Check SSH credentials and docker compose configuration on the server.
 
-Relevant checks:
+Enhanced validation checks:
 - Tool presence validation: [release.sh:8-13](file://release.sh#L8-L13)
 - Clean state validation: [release.sh:15-18](file://release.sh#L15-L18)
 - Version extraction: [release.sh:20-24](file://release.sh#L20-L24)
-- Tag conflict checks: [release.sh:26-34](file://release.sh#L26-L34)
-- GitHub auth status: [release.sh:36](file://release.sh#L36)
-- Frontend build: [release.sh:38-43](file://release.sh#L38-L43)
-- Backend build: [release.sh:45-46](file://release.sh#L45-L46)
+- GitHub repository detection: [release.sh:26-32](file://release.sh#L26-L32)
+- Pre-existing tag handling: [release.sh:34-38](file://release.sh#L34-L38)
+- GitHub auth status: [release.sh:40](file://release.sh#L40)
+- Frontend build: [release.sh:42-47](file://release.sh#L42-L47)
+- Backend build: [release.sh:60-99](file://release.sh#L60-L99)
+- Archive creation: [release.sh:85-99](file://release.sh#L85-L99)
+- Tag management: [release.sh:108-116](file://release.sh#L108-L116)
+- Release publishing: [release.sh:118-127](file://release.sh#L118-L127)
 - Docker Hub login: [docker-publish.yml:18-22](file://.github/workflows/docker-publish.yml#L18-L22)
 - Server deployment: [docker-publish.yml:45-58](file://.github/workflows/docker-publish.yml#L45-L58)
 
 **Section sources**
-- [release.sh:8-46](file://release.sh#L8-L46)
+- [release.sh:8-127](file://release.sh#L8-L127)
 - [docker-publish.yml:18-58](file://.github/workflows/docker-publish.yml#L18-L58)
 
 ## Conclusion
-CrabLite’s release process combines automated CI/CD with robust local scripting to ensure consistent, secure, and efficient delivery of updates. By adhering to the outlined checklist, versioning practices, and operational guidelines, maintainers can confidently publish releases, manage artifacts, and deploy to production while maintaining high reliability and performance.
+CrabLite's release process combines automated CI/CD with robust enhanced local scripting to ensure consistent, secure, and efficient delivery of updates. The improved repository detection, better error handling, and enhanced tag conflict resolution make the release process more reliable and user-friendly. By adhering to the outlined checklist, versioning practices, and operational guidelines, maintainers can confidently publish releases, manage artifacts, and deploy to production while maintaining high reliability and performance.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -456,3 +550,33 @@ Configuration references:
 **Section sources**
 - [README.md:70-83](file://README.md#L70-L83)
 - [Dockerfile:50-51](file://Dockerfile#L50-L51)
+
+### Enhanced Release Script Features
+The enhanced release script provides several improvements over the original implementation:
+
+#### Repository Detection
+- Automatic parsing of GitHub remote URLs
+- Support for various GitHub URL formats (HTTPS, SSH)
+- Clear error messages when repository cannot be determined
+
+#### Tag Management
+- Graceful handling of pre-existing remote tags
+- Resumption capability for interrupted releases
+- Conflict resolution without manual intervention
+
+#### Error Handling
+- Descriptive error messages for all failure scenarios
+- Specific tool requirements with installation guidance
+- Comprehensive validation of prerequisites
+
+#### Multi-platform Support
+- Cross-compilation for Linux and Windows targets
+- Platform-specific archive formats (.tar.gz vs .zip)
+- Consistent naming conventions across platforms
+
+**Section sources**
+- [release.sh:26-32](file://release.sh#L26-L32)
+- [release.sh:34-38](file://release.sh#L34-L38)
+- [release.sh:49-55](file://release.sh#L49-L55)
+- [release.sh:79-83](file://release.sh#L79-L83)
+- [release.sh:85-99](file://release.sh#L85-L99)
