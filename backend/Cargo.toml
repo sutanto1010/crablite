@@ -24,3 +24,7 @@ hex = "0.4"
 strip = true      # Automatically strip symbols from the binary
 lto = true        # Link Time Optimization
 codegen-units = 1 # Reduces parallelism but increases optimization
+
+[profile.release.build-override]
+strip = false
+
