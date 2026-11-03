@@ -6,6 +6,7 @@ use sqlx::SqlitePool;
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<RwLock<Option<SqlitePool>>>,
+    pub metadata_db: SqlitePool,
     pub db_dir: PathBuf,
     pub api_key: String,
     pub turnstile_secret_key: Option<String>,
@@ -18,7 +19,8 @@ impl AppState {
     #[cfg(test)]
     pub fn for_test(pool: SqlitePool) -> Self {
         Self {
-            db: Arc::new(RwLock::new(Some(pool))),
+            db: Arc::new(RwLock::new(Some(pool.clone()))),
+            metadata_db: pool,
             db_dir: PathBuf::new(),
             api_key: "test-api-key".to_string(),
             turnstile_secret_key: None,

@@ -3,6 +3,7 @@ import accountTree from "@material-symbols/svg-400/outlined/account_tree.svg?raw
 import add from "@material-symbols/svg-400/outlined/add.svg?raw";
 import smartToy from "@material-symbols/svg-400/outlined/smart_toy.svg?raw";
 import bolt from "@material-symbols/svg-400/outlined/bolt.svg?raw";
+import bookmark from "@material-symbols/svg-400/outlined/bookmark.svg?raw";
 import cable from "@material-symbols/svg-400/outlined/cable.svg?raw";
 import check from "@material-symbols/svg-400/outlined/check.svg?raw";
 import code from "@material-symbols/svg-400/outlined/code.svg?raw";
@@ -20,6 +21,7 @@ import memory from "@material-symbols/svg-400/outlined/memory.svg?raw";
 import playArrow from "@material-symbols/svg-400/outlined/play_arrow.svg?raw";
 import playArrowFilled from "@material-symbols/svg-400/outlined/play_arrow-fill.svg?raw";
 import refresh from "@material-symbols/svg-400/outlined/refresh.svg?raw";
+import save from "@material-symbols/svg-400/outlined/save.svg?raw";
 import schema from "@material-symbols/svg-400/outlined/schema.svg?raw";
 import settingsEthernet from "@material-symbols/svg-400/outlined/settings_ethernet.svg?raw";
 import table from "@material-symbols/svg-400/outlined/table.svg?raw";
@@ -32,6 +34,7 @@ const icons: Record<string, string> = {
   add,
   smart_toy: smartToy,
   bolt,
+  bookmark,
   cable,
   check,
   code,
@@ -48,6 +51,7 @@ const icons: Record<string, string> = {
   memory,
   play_arrow: playArrow,
   refresh,
+  save,
   schema,
   settings_ethernet: settingsEthernet,
   table,

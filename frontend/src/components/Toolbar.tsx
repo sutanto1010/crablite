@@ -2,6 +2,7 @@ import { Component, Show } from "solid-js";
 import {
   isQuerying, runQuery, currentTable, sqlContent, setSqlContent,
   selectedRowIndices, execSql, setShouldFocusSqlInput, queryResult,
+  setIsSaveModalOpen,
 } from "../lib/store";
 import Icon from "./Icon";
 
@@ -84,6 +85,14 @@ const Toolbar: Component = () => {
           <Icon name="play_arrow" filled />
         </Show>
         Run query
+      </button>
+      <button
+        class="btn btn-sm btn-outline"
+        onClick={() => setIsSaveModalOpen(true)}
+        disabled={!sqlContent().trim()}
+        title="Save query"
+      >
+        <Icon name="save" /> Save query
       </button>
       <div class="w-px h-6 bg-base-300 mx-1 hidden sm:block" />
       <button class="btn btn-sm btn-outline" onClick={handleInsert} disabled={!currentTable()}>

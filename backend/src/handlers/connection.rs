@@ -35,8 +35,12 @@ pub async fn list_dbs(State(state): State<AppState>) -> impl IntoResponse {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_file() {
-                        if let Some(name) = entry.file_name().to_str() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        // Exclude hidden files / metadata files / hidden directories
+                        if name.starts_with('.') {
+                            continue;
+                        }
+                        if file_type.is_file() {
                             // Exclude WAL/SHM files and only match .db extension
                             if !name.ends_with("-wal") && !name.ends_with("-shm")
                                && name.ends_with(".db") {
@@ -45,10 +49,10 @@ pub async fn list_dbs(State(state): State<AppState>) -> impl IntoResponse {
                                     result.push(rel.to_string_lossy().to_string());
                                 }
                             }
+                        } else if file_type.is_dir() {
+                            // Recurse into subdirectories
+                            scan_db_files(&path, root, result);
                         }
-                    } else if file_type.is_dir() {
-                        // Recurse into subdirectories
-                        scan_db_files(&path, root, result);
                     }
                 }
             }

@@ -4,9 +4,16 @@ import * as api from "./api";
 // Re-export API types for components to use
 export type QueryResult = api.QueryResult;
 export type WorkspaceView = "query" | "schema" | "internals";
+export type SavedQuery = api.SavedQuery;
 
 export const [apiKey, setApiKey] = createSignal<string>(localStorage.getItem("api_key") || "");
 export const [isAuthModalOpen, setIsAuthModalOpen] = createSignal<boolean>(false);
+
+export const [currentDbPath, setCurrentDbPath] = createSignal<string>(localStorage.getItem("last-db-file") || "");
+export const [savedQueries, setSavedQueries] = createSignal<api.SavedQuery[]>([]);
+export const [activeSavedQueryId, setActiveSavedQueryId] = createSignal<number | null>(null);
+export const [isLoadingSavedQueries, setIsLoadingSavedQueries] = createSignal<boolean>(false);
+export const [isSaveModalOpen, setIsSaveModalOpen] = createSignal<boolean>(false);
 
 export const [tables, setTables] = createSignal<string[]>([]);
 export const [sqlContent, setSqlContent] = createSignal<string>("");
@@ -41,6 +48,7 @@ export const resetStore = () => {
     setSqliteInternals(null);
     setSelectedSchemaObject(null);
     setMetadataError(null);
+    setActiveSavedQueryId(null);
 };
 
 export const logoutUser = async () => {
@@ -203,4 +211,60 @@ export const correctSql = async () => {
     } finally {
         setIsCorrecting(false);
     }
+};
+
+export const fetchSavedQueries = async (targetDb?: string) => {
+    const db = targetDb || currentDbPath();
+    if (!db) {
+        setSavedQueries([]);
+        return;
+    }
+    setIsLoadingSavedQueries(true);
+    try {
+        const queries = await api.fetchSavedQueries(db, apiKey(), onUnauthorized);
+        setSavedQueries(queries);
+    } catch (e) {
+        console.error("Failed to fetch saved queries", e);
+        setSavedQueries([]);
+    } finally {
+        setIsLoadingSavedQueries(false);
+    }
+};
+
+export const saveQuery = async (name: string, sql: string, idToUpdate?: number) => {
+    const db = currentDbPath();
+    if (!db) throw new Error("No database connected");
+
+    if (idToUpdate) {
+        const updated = await api.updateSavedQuery(idToUpdate, { name, query: sql }, apiKey(), onUnauthorized);
+        setSavedQueries((prev) => prev.map((q) => (q.id === idToUpdate ? updated : q)));
+        setActiveSavedQueryId(updated.id);
+        return updated;
+    } else {
+        const created = await api.createSavedQuery(db, name, sql, apiKey(), onUnauthorized);
+        setSavedQueries((prev) => [created, ...prev]);
+        setActiveSavedQueryId(created.id);
+        return created;
+    }
+};
+
+export const updateSavedQueryName = async (id: number, name: string) => {
+    const updated = await api.updateSavedQuery(id, { name }, apiKey(), onUnauthorized);
+    setSavedQueries((prev) => prev.map((q) => (q.id === id ? updated : q)));
+    return updated;
+};
+
+export const removeSavedQuery = async (id: number) => {
+    await api.deleteSavedQuery(id, apiKey(), onUnauthorized);
+    setSavedQueries((prev) => prev.filter((q) => q.id !== id));
+    if (activeSavedQueryId() === id) {
+        setActiveSavedQueryId(null);
+    }
+};
+
+export const loadSavedQuery = (savedQuery: api.SavedQuery) => {
+    setActiveSavedQueryId(savedQuery.id);
+    setWorkspaceView("query");
+    setSqlContent(savedQuery.query);
+    setShouldFocusSqlInput(true);
 };

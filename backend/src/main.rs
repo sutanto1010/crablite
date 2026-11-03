@@ -18,8 +18,9 @@ mod handlers;
 mod state;
 
 use handlers::{
-    connect_db, correct_sql, execute_query, get_auth_config, get_database_schema,
-    get_sqlite_internals, get_table_schema, health_check, list_dbs, list_tables, login, logout,
+    connect_db, correct_sql, create_saved_query, delete_saved_query, execute_query,
+    get_auth_config, get_database_schema, get_sqlite_internals, get_table_schema, health_check,
+    init_metadata_db, list_dbs, list_saved_queries, list_tables, login, logout, update_saved_query,
     verify_session_cookie,
 };
 use state::AppState;
@@ -93,8 +94,28 @@ async fn main() {
         tracing::info!("Cloudflare Turnstile disabled (optional TURNSTILE_SECRET_KEY / TURNSTILE_SITE_KEY not configured)");
     }
 
+    if let Err(e) = std::fs::create_dir_all(&db_dir) {
+        tracing::error!("Failed to create db directory: {}", e);
+    }
+
+    let metadata_db_path = db_dir.join(".crablite_metadata.db");
+    let metadata_options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&metadata_db_path)
+        .create_if_missing(true)
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+        .busy_timeout(std::time::Duration::from_secs(30));
+
+    let metadata_pool = sqlx::SqlitePool::connect_with(metadata_options)
+        .await
+        .expect("Failed to connect to metadata database");
+
+    init_metadata_db(&metadata_pool)
+        .await
+        .expect("Failed to initialize metadata tables");
+
     let state = AppState {
         db: Arc::new(RwLock::new(None)),
+        metadata_db: metadata_pool,
         db_dir,
         api_key,
         turnstile_secret_key,
@@ -119,6 +140,11 @@ async fn main() {
         .route("/internals", get(get_sqlite_internals))
         .route("/query", post(execute_query))
         .route("/correct", post(correct_sql))
+        .route("/saved-queries", get(list_saved_queries).post(create_saved_query))
+        .route(
+            "/saved-queries/{id}",
+            axum::routing::put(update_saved_query).delete(delete_saved_query),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

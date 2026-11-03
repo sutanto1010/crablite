@@ -7,12 +7,14 @@ import Toolbar from "./components/Toolbar";
 import AuthModal from "./components/AuthModal";
 import SchemaExplorer from "./components/SchemaExplorer";
 import WorkspaceTabs from "./components/WorkspaceTabs";
+import SaveQueryModal from "./components/SaveQueryModal";
 import { workspaceView } from "./lib/store";
 
 const App: Component = () => {
   return (
     <div class="h-dvh bg-base-200 flex flex-col">
       <AuthModal />
+      <SaveQueryModal />
       <Navbar />
 
       <div class="flex-1 flex flex-col md:flex-row gap-3 p-3 sm:p-4 min-h-0">

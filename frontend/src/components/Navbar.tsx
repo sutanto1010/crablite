@@ -1,6 +1,15 @@
 import { Component, createSignal, onMount, For, Show } from "solid-js";
 import ThemeSwitch from "./ThemeSwitch";
-import { fetchTables, resetStore, apiKey, setIsAuthModalOpen, logoutUser } from "../lib/store";
+import {
+  fetchTables,
+  resetStore,
+  apiKey,
+  setIsAuthModalOpen,
+  logoutUser,
+  currentDbPath,
+  setCurrentDbPath,
+  fetchSavedQueries,
+} from "../lib/store";
 import { getDbFiles, connectDb, getHealth } from "../lib/api";
 import Icon from "./Icon";
 
@@ -8,7 +17,6 @@ const Navbar: Component = () => {
   const [appVersion, setAppVersion] = createSignal("");
   // DB Logic
   const [dbFiles, setDbFiles] = createSignal<string[]>([]);
-  const [currentPath, setCurrentPath] = createSignal("");
   const [inputPath, setInputPath] = createSignal("");
   const [isLoading, setIsLoading] = createSignal(false);
   const [errorMsg, setErrorMsg] = createSignal("");
@@ -40,9 +48,9 @@ const Navbar: Component = () => {
     if (files.length > 0) {
       const last = localStorage.getItem("last-db-file");
       if (last && files.includes(last)) {
-        setCurrentPath(last);
+        setCurrentDbPath(last);
       } else {
-        setCurrentPath(files[0]);
+        setCurrentDbPath(files[0]);
       }
       await autoLoad();
     } else {
@@ -67,7 +75,7 @@ const Navbar: Component = () => {
   }
 
   async function autoLoad() {
-    const path = currentPath();
+    const path = currentDbPath();
     if (!path) return;
 
     setIsLoading(true);
@@ -77,6 +85,7 @@ const Navbar: Component = () => {
     if (success) {
       saveLastFile(path);
       fetchTables();
+      fetchSavedQueries(path);
     } else {
       setErrorMsg("Failed to connect to " + path);
     }
@@ -84,7 +93,7 @@ const Navbar: Component = () => {
 
   function onConnectSuccess(path: string) {
     saveLastFile(path);
-    setCurrentPath(path);
+    setCurrentDbPath(path);
     setInputPath("");
     setErrorMsg("");
 
@@ -96,6 +105,7 @@ const Navbar: Component = () => {
     }
 
     fetchTables();
+    fetchSavedQueries(path);
   }
 
   async function handleCreateConfirm() {
@@ -160,7 +170,7 @@ const Navbar: Component = () => {
         <div class="join w-full">
           <select
             class="select select-bordered w-full join-item bg-base-100"
-            value={currentPath()}
+            value={currentDbPath()}
             onChange={handleSelectorChange}
             disabled={isLoading()}
           >

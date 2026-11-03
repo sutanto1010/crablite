@@ -269,3 +269,83 @@ export const connectDb = async (
     }
     return { success: res.ok, status: res.status };
 };
+
+export interface SavedQuery {
+    id: number;
+    db_path: string;
+    name: string;
+    query: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export const fetchSavedQueries = async (
+    dbPath: string,
+    apiKey: string,
+    onUnauthorized?: () => void
+): Promise<SavedQuery[]> => {
+    const res = await fetch(`./api/saved-queries?db=${encodeURIComponent(dbPath)}`, {
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
+    });
+    await handleResponse(res, onUnauthorized);
+    if (res.ok) {
+        return await res.json();
+    }
+    throw new Error("Failed to fetch saved queries");
+};
+
+export const createSavedQuery = async (
+    dbPath: string,
+    name: string,
+    query: string,
+    apiKey: string,
+    onUnauthorized?: () => void
+): Promise<SavedQuery> => {
+    const res = await fetch("./api/saved-queries", {
+        method: "POST",
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
+        body: JSON.stringify({ db_path: dbPath, name, query }),
+    });
+    await handleResponse(res, onUnauthorized);
+    if (res.ok) {
+        return await res.json();
+    }
+    throw new Error("Failed to create saved query");
+};
+
+export const updateSavedQuery = async (
+    id: number,
+    payload: { name?: string; query?: string },
+    apiKey: string,
+    onUnauthorized?: () => void
+): Promise<SavedQuery> => {
+    const res = await fetch(`./api/saved-queries/${id}`, {
+        method: "PUT",
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+    });
+    await handleResponse(res, onUnauthorized);
+    if (res.ok) {
+        return await res.json();
+    }
+    throw new Error("Failed to update saved query");
+};
+
+export const deleteSavedQuery = async (
+    id: number,
+    apiKey: string,
+    onUnauthorized?: () => void
+): Promise<void> => {
+    const res = await fetch(`./api/saved-queries/${id}`, {
+        method: "DELETE",
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
+    });
+    await handleResponse(res, onUnauthorized);
+    if (!res.ok) {
+        throw new Error("Failed to delete saved query");
+    }
+};
