@@ -18,10 +18,10 @@ mod handlers;
 mod state;
 
 use handlers::{
-    connect_db, correct_sql, create_saved_query, delete_saved_query, execute_query,
+    connect_db, correct_sql, create_saved_query, delete_db_file, delete_saved_query, execute_query,
     get_auth_config, get_database_schema, get_sqlite_internals, get_table_schema, health_check,
-    init_metadata_db, list_dbs, list_saved_queries, list_tables, login, logout, update_saved_query,
-    verify_session_cookie,
+    init_metadata_db, list_dbs, list_saved_queries, list_tables, login, logout, rename_db_file,
+    replace_db_file, update_saved_query, verify_session_cookie,
 };
 use state::AppState;
 
@@ -134,6 +134,8 @@ async fn main() {
     let protected_routes = Router::new()
         .route("/connect", post(connect_db))
         .route("/db-files", get(list_dbs))
+        .route("/db-files/rename", post(rename_db_file))
+        .route("/db-files/{*path}", axum::routing::put(replace_db_file).delete(delete_db_file))
         .route("/tables", get(list_tables))
         .route("/schema", get(get_database_schema))
         .route("/schema/table", get(get_table_schema))

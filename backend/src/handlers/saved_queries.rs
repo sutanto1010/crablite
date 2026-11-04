@@ -16,11 +16,16 @@ pub struct SavedQuery {
     pub query: String,
     pub created_at: String,
     pub updated_at: String,
+    pub tags: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ListSavedQueriesParams {
     pub db: String,
+    #[serde(default)]
+    pub search: Option<String>,
+    #[serde(default)]
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,12 +33,27 @@ pub struct CreateSavedQueryRequest {
     pub db_path: String,
     pub name: String,
     pub query: String,
+    #[serde(default)]
+    pub tags: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateSavedQueryRequest {
     pub name: Option<String>,
     pub query: Option<String>,
+    pub tags: Option<String>,
+}
+
+fn normalize_tags(raw: Option<&str>) -> String {
+    let mut tags: Vec<String> = raw
+        .unwrap_or("")
+        .split(',')
+        .map(|t| t.trim().to_lowercase())
+        .filter(|t| !t.is_empty())
+        .collect();
+    tags.sort();
+    tags.dedup();
+    tags.join(",")
 }
 
 pub async fn init_metadata_db(pool: &SqlitePool) -> Result<(), sqlx::Error> {
@@ -45,13 +65,18 @@ pub async fn init_metadata_db(pool: &SqlitePool) -> Result<(), sqlx::Error> {
             name TEXT NOT NULL,
             query TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            tags TEXT NOT NULL DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_saved_queries_db_path ON saved_queries (db_path);
         "#,
     )
     .execute(pool)
     .await?;
+    // Backfill for databases created before tags existed.
+    let _ = sqlx::query("ALTER TABLE saved_queries ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
+        .execute(pool)
+        .await;
     Ok(())
 }
 
@@ -64,15 +89,27 @@ pub async fn list_saved_queries(
         return Ok(Json(Vec::new()));
     }
 
+    let search = params.search.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let tag = params.tag.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let like_search = search.map(|s| format!("%{s}%"));
+    let like_tag = tag.map(|t| format!("%,{},%", t.to_lowercase()));
+
     let queries = sqlx::query_as::<_, SavedQuery>(
         r#"
-        SELECT id, db_path, name, query, created_at, updated_at
+        SELECT id, db_path, name, query, created_at, updated_at, tags
         FROM saved_queries
         WHERE db_path = ?
+          AND (? IS NULL OR name LIKE ? OR query LIKE ?)
+          AND (? IS NULL OR (',' || lower(tags) || ',') LIKE ?)
         ORDER BY updated_at DESC, id DESC
         "#,
     )
     .bind(db)
+    .bind(like_search.clone())
+    .bind(like_search.clone())
+    .bind(like_search)
+    .bind(like_tag.clone())
+    .bind(like_tag)
     .fetch_all(&state.metadata_db)
     .await
     .map_err(|e| {
@@ -97,14 +134,15 @@ pub async fn create_saved_query(
 
     let saved = sqlx::query_as::<_, SavedQuery>(
         r#"
-        INSERT INTO saved_queries (db_path, name, query, created_at, updated_at)
-        VALUES (?, ?, ?, datetime('now'), datetime('now'))
-        RETURNING id, db_path, name, query, created_at, updated_at
+        INSERT INTO saved_queries (db_path, name, query, tags, created_at, updated_at)
+        VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+        RETURNING id, db_path, name, query, created_at, updated_at, tags
         "#,
     )
     .bind(db_path)
     .bind(name)
     .bind(query)
+    .bind(normalize_tags(payload.tags.as_deref()))
     .fetch_one(&state.metadata_db)
     .await
     .map_err(|e| {
@@ -122,6 +160,7 @@ pub async fn update_saved_query(
 ) -> Result<Json<SavedQuery>, (StatusCode, &'static str)> {
     let name = payload.name.as_deref().map(str::trim);
     let query = payload.query.as_deref().map(str::trim);
+    let tags = payload.tags.as_deref().map(|t| normalize_tags(Some(t)));
 
     if matches!(name, Some(n) if n.is_empty()) {
         return Err((StatusCode::BAD_REQUEST, "name cannot be empty"));
@@ -130,7 +169,7 @@ pub async fn update_saved_query(
         return Err((StatusCode::BAD_REQUEST, "query cannot be empty"));
     }
 
-    if name.is_none() && query.is_none() {
+    if name.is_none() && query.is_none() && tags.is_none() {
         return Err((StatusCode::BAD_REQUEST, "Nothing to update"));
     }
 
@@ -139,13 +178,15 @@ pub async fn update_saved_query(
         UPDATE saved_queries
         SET name = COALESCE(?, name),
             query = COALESCE(?, query),
+            tags = COALESCE(?, tags),
             updated_at = datetime('now')
         WHERE id = ?
-        RETURNING id, db_path, name, query, created_at, updated_at
+        RETURNING id, db_path, name, query, created_at, updated_at, tags
         "#,
     )
     .bind(name)
     .bind(query)
+    .bind(tags)
     .bind(id)
     .fetch_optional(&state.metadata_db)
     .await
@@ -193,16 +234,16 @@ mod tests {
     #[tokio::test]
     async fn test_saved_queries_crud_lifecycle() {
         let state = test_state().await;
+        let empty_params = || ListSavedQueriesParams {
+            db: "test.db".to_string(),
+            search: None,
+            tag: None,
+        };
 
         // 1. Initially empty
-        let list = list_saved_queries(
-            State(state.clone()),
-            Query(ListSavedQueriesParams {
-                db: "test.db".to_string(),
-            }),
-        )
-        .await
-        .unwrap();
+        let list = list_saved_queries(State(state.clone()), Query(empty_params()))
+            .await
+            .unwrap();
         assert!(list.0.is_empty());
 
         // 2. Create saved query
@@ -212,6 +253,7 @@ mod tests {
                 db_path: "test.db".to_string(),
                 name: "Active Users".to_string(),
                 query: "SELECT * FROM users WHERE active = 1".to_string(),
+                tags: Some("reports, Active".to_string()),
             }),
         )
         .await
@@ -220,6 +262,7 @@ mod tests {
         assert_eq!(created.name, "Active Users");
         assert_eq!(created.db_path, "test.db");
         assert_eq!(created.query, "SELECT * FROM users WHERE active = 1");
+        assert_eq!(created.tags, "active,reports");
 
         // 3. Create another saved query for a different database
         let (_status, _created_other) = create_saved_query(
@@ -228,22 +271,50 @@ mod tests {
                 db_path: "other.db".to_string(),
                 name: "Other Query".to_string(),
                 query: "SELECT 1".to_string(),
+                tags: None,
             }),
         )
         .await
         .unwrap();
 
         // 4. List queries for "test.db" (should only return the test.db query)
-        let list = list_saved_queries(
+        let list = list_saved_queries(State(state.clone()), Query(empty_params()))
+            .await
+            .unwrap();
+        assert_eq!(list.0.len(), 1);
+        assert_eq!(list.0[0].name, "Active Users");
+
+        // 4b. Search and tag filters
+        let searched = list_saved_queries(
             State(state.clone()),
             Query(ListSavedQueriesParams {
-                db: "test.db".to_string(),
+                search: Some("Active".to_string()),
+                ..empty_params()
             }),
         )
         .await
         .unwrap();
-        assert_eq!(list.0.len(), 1);
-        assert_eq!(list.0[0].name, "Active Users");
+        assert_eq!(searched.0.len(), 1);
+        let tagged = list_saved_queries(
+            State(state.clone()),
+            Query(ListSavedQueriesParams {
+                tag: Some("reports".to_string()),
+                ..empty_params()
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(tagged.0.len(), 1);
+        let missing_tag = list_saved_queries(
+            State(state.clone()),
+            Query(ListSavedQueriesParams {
+                tag: Some("missing".to_string()),
+                ..empty_params()
+            }),
+        )
+        .await
+        .unwrap();
+        assert!(missing_tag.0.is_empty());
 
         // 5. Update query
         let updated = update_saved_query(
@@ -252,12 +323,14 @@ mod tests {
             Json(UpdateSavedQueryRequest {
                 name: Some("All Active Users".to_string()),
                 query: None,
+                tags: None,
             }),
         )
         .await
         .unwrap();
         assert_eq!(updated.0.name, "All Active Users");
         assert_eq!(updated.0.query, "SELECT * FROM users WHERE active = 1");
+        assert_eq!(updated.0.tags, "active,reports");
 
         // 6. Delete query
         let del_status = delete_saved_query(State(state.clone()), Path(created.id))
@@ -266,14 +339,9 @@ mod tests {
         assert_eq!(del_status, StatusCode::NO_CONTENT);
 
         // 7. List again - should be empty for test.db
-        let list_after = list_saved_queries(
-            State(state.clone()),
-            Query(ListSavedQueriesParams {
-                db: "test.db".to_string(),
-            }),
-        )
-        .await
-        .unwrap();
+        let list_after = list_saved_queries(State(state.clone()), Query(empty_params()))
+            .await
+            .unwrap();
         assert!(list_after.0.is_empty());
 
         // 8. Delete non-existent returns 404

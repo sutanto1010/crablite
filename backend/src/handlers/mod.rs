@@ -8,7 +8,7 @@ pub mod saved_queries;
 
 pub use ai::correct_sql;
 pub use auth::{get_auth_config, login, logout, verify_session_cookie};
-pub use connection::{connect_db, list_dbs, list_tables};
+pub use connection::{connect_db, delete_db_file, list_dbs, list_tables, rename_db_file, replace_db_file};
 pub use health::health_check;
 pub use metadata::{get_database_schema, get_sqlite_internals, get_table_schema};
 pub use query::execute_query;
