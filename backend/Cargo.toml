@@ -1,6 +1,6 @@
 [package]
 name = "crablite"
-version = "26.11.6"
+version = "26.11.7"
 edition = "2024"
 
 [dependencies]
@@ -27,4 +27,3 @@ codegen-units = 1 # Reduces parallelism but increases optimization
 
 [profile.release.build-override]
 strip = false
-
