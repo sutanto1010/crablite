@@ -6,18 +6,32 @@
       "type": "lldb",
       "request": "launch",
       "cargo": {
-        "args": ["build", "--bin", "crablite"],
-        "filter": { "name": "crablite", "kind": "bin" }
+        "args": [
+          "build",
+          "--bin",
+          "crablite",
+          "--manifest-path",
+          "${workspaceFolder}/backend/Cargo.toml"
+        ],
+        "filter": {
+          "name": "crablite",
+          "kind": "bin"
+        }
       },
       "cwd": "${workspaceFolder}/backend",
-      "env": { "RUST_LOG": "debug", "PORT": "3000" }
+      "env": {
+        "RUST_LOG": "debug",
+        "PORT": "3000"
+      }
     },
     {
       "name": "Frontend (Vite)",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["start"],
+      "runtimeArgs": [
+        "start"
+      ],
       "cwd": "${workspaceFolder}/frontend",
       "console": "integratedTerminal",
       "serverReadyAction": {
@@ -30,7 +44,10 @@
   "compounds": [
     {
       "name": "Full Stack: Frontend + Backend",
-      "configurations": ["Backend (Rust)", "Frontend (Vite)"],
+      "configurations": [
+        "Backend (Rust)",
+        "Frontend (Vite)"
+      ],
       "stopAll": true
     }
   ]
