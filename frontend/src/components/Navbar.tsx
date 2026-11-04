@@ -135,9 +135,11 @@ const Navbar: Component = () => {
   async function handleSelectorChange(e: Event) {
     const target = e.target as HTMLSelectElement;
     const path = target.value;
-    setCurrentPath(path);
-
     if (!path) return;
+
+    const previous = currentDbPath();
+    setCurrentDbPath(path);
+
     setIsLoading(true);
     const { success } = await connectAPI(path);
     setIsLoading(false);
@@ -145,6 +147,7 @@ const Navbar: Component = () => {
     if (success) {
       onConnectSuccess(path);
     } else {
+      setCurrentDbPath(previous);
       setErrorMsg("Failed to switch to " + path);
     }
   }
