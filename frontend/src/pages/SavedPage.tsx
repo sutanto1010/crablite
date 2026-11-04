@@ -1,5 +1,5 @@
 import { Component, For, Show, createSignal, onMount } from "solid-js";
-import { useSearchParams } from "@solidjs/router";
+import { useNavigate, useSearchParams } from "@solidjs/router";
 import Icon from "../components/Icon";
 import {
   savedQueries,
@@ -19,6 +19,7 @@ import {
 } from "../lib/store";
 
 const SavedPage: Component = () => {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [editingId, setEditingId] = createSignal<number | null>(null);
   const [editName, setEditName] = createSignal("");
@@ -37,6 +38,7 @@ const SavedPage: Component = () => {
 
   const openInEditor = (query: string) => {
     addTab(query);
+    navigate("/");
   };
 
   const startEdit = (id: number, name: string, tags: string) => {
@@ -147,7 +149,7 @@ const SavedPage: Component = () => {
                 <div class="mt-auto flex items-center gap-1.5">
                   <Show when={editingId() === item.id} fallback={
                     <>
-                      <button type="button" class="btn btn-outline btn-sm" onClick={() => { updateActiveTab({ sql: item.query, page: 1 }); }}>
+                      <button type="button" class="btn btn-outline btn-sm" onClick={() => { updateActiveTab({ sql: item.query, page: 1 }); navigate("/"); }}>
                         <Icon name="code" class="size-4" /> Load
                       </button>
                       <button type="button" class="btn btn-ghost btn-sm" onClick={() => startEdit(item.id, item.name, item.tags || "")}>
