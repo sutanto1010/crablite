@@ -1,4 +1,4 @@
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, createSignal, onCleanup } from "solid-js";
 import SqlEditor from "../components/SqlEditor";
 import DataGrid from "../components/DataGrid";
 import {
@@ -22,15 +22,47 @@ import {
 import Icon from "../components/Icon";
 
 const QueryPage: Component = () => {
+  const [hoveredTab, setHoveredTab] = createSignal<{ id: string; name: string; x: number; y: number } | null>(null);
+  let hoverTimer: number | undefined;
+  let activeAnchor: HTMLElement | null = null;
+
+  const showTabTooltip = (tabId: string, tabName: string, anchor: HTMLElement) => {
+    window.clearTimeout(hoverTimer);
+    activeAnchor = anchor;
+    // Small delay so moving the mouse across tabs doesn't flash tooltips.
+    hoverTimer = window.setTimeout(() => {
+      if (activeAnchor !== anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      setHoveredTab({ id: tabId, name: tabName, x: rect.left + rect.width / 2, y: rect.bottom + 8 });
+    }, 350);
+  };
+
+  const hideTabTooltip = () => {
+    window.clearTimeout(hoverTimer);
+    activeAnchor = null;
+    setHoveredTab(null);
+  };
+
+  onCleanup(() => window.clearTimeout(hoverTimer));
+
   return (
     <div class="flex min-h-0 flex-1 flex-col gap-3 p-3 sm:p-4">
-      <div class="flex items-center gap-2 overflow-x-auto" role="tablist" aria-label="Query tabs">
+      <div class="flex items-center gap-2 overflow-x-auto" role="tablist" aria-label="Query tabs" onScroll={hideTabTooltip}>
         <For each={tabs()}>
           {(tab) => (
-            <div role="tab" aria-selected={tab.id === activeTabId()} class={`tab-btn shrink-0 rounded-t-md ${tab.id === activeTabId() ? "bg-card" : ""}`} data-active={tab.id === activeTabId()}>
-              <button type="button" class="flex items-center gap-1.5" onClick={() => setActiveTabId(tab.id)} title={tab.sql || tab.name}>
-                <Icon name="terminal" class="size-3.5" />
-                <span class="max-w-32 truncate">{tab.name}</span>
+            <div
+              role="tab"
+              aria-selected={tab.id === activeTabId()}
+              class={`tab-btn shrink-0 rounded-t-md ${tab.id === activeTabId() ? "bg-card" : ""}`}
+              data-active={tab.id === activeTabId()}
+              onMouseEnter={(e) => showTabTooltip(tab.id, tab.name, e.currentTarget)}
+              onMouseLeave={hideTabTooltip}
+              onFocusIn={(e) => showTabTooltip(tab.id, tab.name, e.currentTarget)}
+              onFocusOut={hideTabTooltip}
+            >
+              <button type="button" class="flex max-w-32 items-center gap-1.5" onClick={() => setActiveTabId(tab.id)} aria-label={tab.name}>
+                <Icon name="terminal" class="size-3.5 shrink-0" />
+                <span class="truncate">{tab.name}</span>
               </button>
               <button
                 type="button"
@@ -54,6 +86,19 @@ const QueryPage: Component = () => {
           </span>
         </div>
       </div>
+      <Show when={hoveredTab()}>
+        <div
+          role="tooltip"
+          class="pointer-events-none fixed z-50 max-w-xs truncate rounded-md border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground shadow-md"
+          style={{
+            left: `${Math.min(Math.max(hoveredTab()!.x, 80), window.innerWidth - 80)}px`,
+            top: `${hoveredTab()!.y}px`,
+            transform: "translateX(-50%)",
+          }}
+        >
+          {hoveredTab()!.name}
+        </div>
+      </Show>
 
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" class="btn btn-default btn-sm" onClick={() => runQuery()} disabled={isQuerying() || !activeTab().sql.trim()}>
