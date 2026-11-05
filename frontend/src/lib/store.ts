@@ -386,13 +386,30 @@ export const refreshMetadata = async (view: string) => {
     else if (view === "schema") await loadSchema(selectedSchemaObject() || tableSchema()?.name || null);
 };
 
+export const [savedSort, setSavedSort] = createSignal<api.SavedQuerySort>("updated");
+export const [savedAllTags, setSavedAllTags] = createSignal<string[]>([]);
+
 export const allSavedTags = createMemo(() => {
-    const tags = new Set<string>();
+    const tags = new Set<string>(savedAllTags());
     for (const q of savedQueries()) {
         for (const t of (q.tags || "").split(",").map((s) => s.trim()).filter(Boolean)) tags.add(t);
     }
-    return [...tags].sort();
+    return [...tags].sort((a, b) => a.localeCompare(b));
 });
+
+export const fetchSavedTags = async () => {
+    const db = currentDbPath();
+    if (!db) {
+        setSavedAllTags([]);
+        return;
+    }
+    try {
+        const tags = await api.fetchSavedQueryTags(db, apiKey(), onUnauthorized);
+        setSavedAllTags(tags);
+    } catch {
+        // Keep page-derived tags as fallback; don't toast on tags-only failure.
+    }
+};
 
 export const fetchSavedQueries = async () => {
     const db = currentDbPath();
@@ -402,7 +419,7 @@ export const fetchSavedQueries = async () => {
     }
     setIsLoadingSavedQueries(true);
     try {
-        const queries = await api.fetchSavedQueries(db, apiKey(), { search: savedSearch(), tag: savedTag() }, onUnauthorized);
+        const queries = await api.fetchSavedQueries(db, apiKey(), { search: savedSearch(), tag: savedTag(), sort: savedSort() }, onUnauthorized);
         setSavedQueries(queries);
     } catch (e: any) {
         if (e?.message !== "Unauthorized") pushToast("error", e?.message || "Failed to fetch saved queries");
@@ -418,16 +435,30 @@ export const saveQuery = async (name: string, sql: string, tags: string, idToUpd
     if (idToUpdate) {
         const updated = await api.updateSavedQuery(idToUpdate, { name, query: sql, tags }, apiKey(), onUnauthorized);
         setSavedQueries((prev) => prev.map((q) => (q.id === idToUpdate ? updated : q)));
+        void fetchSavedTags();
         return updated;
     }
     const created = await api.createSavedQuery(db, name, sql, apiKey(), tags, onUnauthorized);
     setSavedQueries((prev) => [created, ...prev]);
+    void fetchSavedTags();
+    return created;
+};
+
+export const duplicateSavedQuery = async (id: number) => {
+    const db = currentDbPath();
+    if (!db) throw new Error("No database connected");
+    const orig = savedQueries().find((q) => q.id === id);
+    if (!orig) throw new Error("Saved query not found");
+    const created = await api.createSavedQuery(db, `${orig.name} (copy)`, orig.query, apiKey(), orig.tags, onUnauthorized);
+    setSavedQueries((prev) => [created, ...prev]);
+    void fetchSavedTags();
     return created;
 };
 
 export const removeSavedQuery = async (id: number) => {
     await api.deleteSavedQuery(id, apiKey(), onUnauthorized);
     setSavedQueries((prev) => prev.filter((q) => q.id !== id));
+    void fetchSavedTags();
 };
 
 export const updateActiveTab = (patch: Partial<QueryTab>) => {

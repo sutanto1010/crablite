@@ -26,6 +26,13 @@ pub struct ListSavedQueriesParams {
     pub search: Option<String>,
     #[serde(default)]
     pub tag: Option<String>,
+    #[serde(default)]
+    pub sort: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListSavedQueryTagsParams {
+    pub db: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -93,17 +100,23 @@ pub async fn list_saved_queries(
     let tag = params.tag.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let like_search = search.map(|s| format!("%{s}%"));
     let like_tag = tag.map(|t| format!("%,{},%", t.to_lowercase()));
-
-    let queries = sqlx::query_as::<_, SavedQuery>(
+    let order_by = match params.sort.as_deref().unwrap_or("updated") {
+        "name" => "ORDER BY lower(name) ASC, id ASC",
+        "created" => "ORDER BY created_at DESC, id DESC",
+        _ => "ORDER BY updated_at DESC, id DESC",
+    };
+    let sql = format!(
         r#"
         SELECT id, db_path, name, query, created_at, updated_at, tags
         FROM saved_queries
         WHERE db_path = ?
           AND (? IS NULL OR name LIKE ? OR query LIKE ?)
           AND (? IS NULL OR (',' || lower(tags) || ',') LIKE ?)
-        ORDER BY updated_at DESC, id DESC
-        "#,
-    )
+        {order_by}
+        "#
+    );
+
+    let queries = sqlx::query_as::<_, SavedQuery>(&sql)
     .bind(db)
     .bind(like_search.clone())
     .bind(like_search.clone())
@@ -118,6 +131,33 @@ pub async fn list_saved_queries(
     })?;
 
     Ok(Json(queries))
+}
+
+pub async fn list_saved_query_tags(
+    State(state): State<AppState>,
+    Query(params): Query<ListSavedQueryTagsParams>,
+) -> Result<Json<Vec<String>>, StatusCode> {
+    let db = params.db.trim();
+    if db.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+
+    let rows: Vec<(String,)> = sqlx::query_as("SELECT tags FROM saved_queries WHERE db_path = ?")
+        .bind(db)
+        .fetch_all(&state.metadata_db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch saved query tags: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    let mut set = std::collections::BTreeSet::new();
+    for (raw,) in rows {
+        for t in raw.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+            set.insert(t.to_lowercase());
+        }
+    }
+    Ok(Json(set.into_iter().collect()))
 }
 
 pub async fn create_saved_query(
@@ -238,6 +278,7 @@ mod tests {
             db: "test.db".to_string(),
             search: None,
             tag: None,
+            sort: None,
         };
 
         // 1. Initially empty
@@ -347,5 +388,45 @@ mod tests {
         // 8. Delete non-existent returns 404
         let del_404 = delete_saved_query(State(state.clone()), Path(created.id)).await;
         assert_eq!(del_404.unwrap_err(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_saved_query_tags_and_sort() {
+        let state = test_state().await;
+        for (name, tags) in [("B Query", "reports, users"), ("A Query", "users"), ("C Query", "")] {
+            create_saved_query(
+                State(state.clone()),
+                Json(CreateSavedQueryRequest {
+                    db_path: "tags.db".to_string(),
+                    name: name.to_string(),
+                    query: format!("SELECT '{name}'"),
+                    tags: Some(tags.to_string()),
+                }),
+            )
+            .await
+            .unwrap();
+        }
+
+        let tags = list_saved_query_tags(
+            State(state.clone()),
+            Query(ListSavedQueryTagsParams { db: "tags.db".to_string() }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(tags.0, vec!["reports".to_string(), "users".to_string()]);
+
+        let by_name = list_saved_queries(
+            State(state.clone()),
+            Query(ListSavedQueriesParams {
+                db: "tags.db".to_string(),
+                search: None,
+                tag: None,
+                sort: Some("name".to_string()),
+            }),
+        )
+        .await
+        .unwrap();
+        let names: Vec<_> = by_name.0.iter().map(|q| q.name.clone()).collect();
+        assert_eq!(names, vec!["A Query", "B Query", "C Query"]);
     }
 }

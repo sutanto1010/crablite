@@ -16,5 +16,5 @@ pub use open_tabs::{get_open_tabs, init_open_tabs_db, put_open_tabs};
 pub use query::execute_query;
 pub use saved_queries::{
     create_saved_query, delete_saved_query, init_metadata_db, list_saved_queries,
-    update_saved_query,
+    list_saved_query_tags, update_saved_query,
 };

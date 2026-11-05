@@ -287,19 +287,31 @@ export interface SavedQuery {
     tags: string;
 }
 
+export type SavedQuerySort = "updated" | "created" | "name";
+
 export interface SavedQueryFilters {
     search?: string;
     tag?: string;
+    sort?: SavedQuerySort;
 }
 
 export const fetchSavedQueries = async (dbPath: string, apiKey: string, filters?: SavedQueryFilters, onUnauthorized?: () => void): Promise<SavedQuery[]> => {
     const params = new URLSearchParams({ db: dbPath });
     if (filters?.search?.trim()) params.set("search", filters.search.trim());
     if (filters?.tag?.trim()) params.set("tag", filters.tag.trim());
+    if (filters?.sort && filters.sort !== "updated") params.set("sort", filters.sort);
     const res = await fetch(`./api/saved-queries?${params.toString()}`, { headers: getHeaders(apiKey), credentials: "same-origin" });
     await handleResponse(res, onUnauthorized);
     if (res.ok) return await res.json();
     throw new Error("Failed to fetch saved queries");
+};
+
+export const fetchSavedQueryTags = async (dbPath: string, apiKey: string, onUnauthorized?: () => void): Promise<string[]> => {
+    const params = new URLSearchParams({ db: dbPath });
+    const res = await fetch(`./api/saved-queries/tags?${params.toString()}`, { headers: getHeaders(apiKey), credentials: "same-origin" });
+    await handleResponse(res, onUnauthorized);
+    if (res.ok) return await res.json();
+    throw new Error("Failed to fetch saved query tags");
 };
 
 export const createSavedQuery = async (dbPath: string, name: string, query: string, apiKey: string, tags?: string, onUnauthorized?: () => void): Promise<SavedQuery> => {

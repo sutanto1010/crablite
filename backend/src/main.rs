@@ -21,9 +21,9 @@ mod state;
 use handlers::{
     connect_db, correct_sql, create_saved_query, delete_db_file, delete_saved_query, execute_query,
     get_auth_config, get_database_schema, get_open_tabs, get_sqlite_internals, get_table_schema,
-    health_check, init_metadata_db, init_open_tabs_db, list_dbs, list_saved_queries, list_tables,
-    login, logout, put_open_tabs, rename_db_file, replace_db_file, update_saved_query,
-    verify_session_cookie,
+    health_check, init_metadata_db, init_open_tabs_db, list_dbs, list_saved_queries,
+    list_saved_query_tags, list_tables, login, logout, put_open_tabs, rename_db_file,
+    replace_db_file, update_saved_query, verify_session_cookie,
 };
 use state::AppState;
 
@@ -184,6 +184,7 @@ async fn main() {
         .route("/query", post(execute_query))
         .route("/correct", post(correct_sql))
         .route("/saved-queries", get(list_saved_queries).post(create_saved_query))
+        .route("/saved-queries/tags", get(list_saved_query_tags))
         .route(
             "/saved-queries/{id}",
             axum::routing::put(update_saved_query).delete(delete_saved_query),
