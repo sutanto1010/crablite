@@ -73,6 +73,14 @@ API_KEY=your_secret_key ./crablite
 
 `<TARGET>` is the Rust target triple, e.g. `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`, or `x86_64-pc-windows-gnu`. Windows archives are `.zip` and contain `crablite.exe`. Keep `dist/` in the extracted directory because it contains the WebUI assets. Open `http://localhost:3000` after the application starts.
 
+To update a prebuilt binary in place later, run from the extracted directory:
+
+```bash
+./crablite --update
+```
+
+This checks `sutanto1010/crablite` GitHub Releases, downloads the matching `<TARGET>` archive, and replaces the binary plus `dist/` (old binary kept as `.bak`). Use `./crablite --update --check-only` to check only, or `-y`/`--yes` to skip confirmation. Inside Docker use `docker pull` instead.
+
 ### Configuration
 
 **DB files**: Database files are scanned recursively under `DB_DIR` (default: `db`, which is `/app/db` in Docker). Subdirectory paths (e.g., `rust/sqlite.db`) are supported for Docker volume mounts like `./rust/data/db:/app/db/rust`. The metadata database `.crablite_metadata.db` is created in the same directory and hidden from listings.

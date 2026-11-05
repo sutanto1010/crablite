@@ -15,6 +15,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod handlers;
+mod self_update;
 mod state;
 
 use handlers::{
@@ -25,6 +26,28 @@ use handlers::{
     verify_session_cookie,
 };
 use state::AppState;
+
+#[derive(clap::Parser, Debug)]
+#[command(
+    name = "crablite",
+    version,
+    about = "Extremely lightweight SQLite web administration tool"
+)]
+struct Cli {
+    /// Check GitHub Releases and self-update the binary + dist/ in place.
+    /// Does not start the server.
+    #[arg(long, short = 'u')]
+    update: bool,
+
+    /// Skip the confirmation prompt during --update.
+    #[arg(long, short = 'y')]
+    yes: bool,
+
+    /// Only check for a newer release, do not download or install.
+    /// Exit code 10 means an update is available.
+    #[arg(long)]
+    check_only: bool,
+}
 
 async fn auth_middleware(
     State(state): State<AppState>,
@@ -54,6 +77,20 @@ async fn auth_middleware(
 
 #[tokio::main]
 async fn main() {
+    let cli = <Cli as clap::Parser>::parse();
+    if cli.update {
+        let code = self_update::run_update(self_update::UpdateOptions {
+            yes: cli.yes,
+            check_only: cli.check_only,
+        })
+        .await;
+        std::process::exit(code);
+    }
+    if cli.check_only {
+        eprintln!("--check-only requires --update");
+        std::process::exit(2);
+    }
+
     dotenv::dotenv().ok();
 
     // 初始化日志
