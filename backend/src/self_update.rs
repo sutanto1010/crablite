@@ -339,12 +339,34 @@ async fn apply_update(client: &reqwest::Client, asset: &ReleaseAsset) -> Result<
     }
     #[cfg(not(windows))]
     {
+        // Linux returns ETXTBSY ("Text file busy") when overwriting a running
+        // executable in place. Install to a temp file in the same directory and
+        // rename over it instead; rename swaps inodes and is allowed.
         let _ = std::fs::remove_file(&backup_bin);
         if current_bin.exists() {
             std::fs::copy(&current_bin, &backup_bin).map_err(|e| e.to_string())?;
         }
-        std::fs::copy(&new_bin, &current_bin).map_err(|e| e.to_string())?;
-        make_executable(&current_bin)?;
+        let tmp_bin = exe_dir.join(format!(
+            ".{}.new-{}-{}",
+            exe_name,
+            std::process::id(),
+            stamp()
+        ));
+        let _ = std::fs::remove_file(&tmp_bin);
+        let install_result: Result<(), String> = (|| {
+            std::fs::copy(&new_bin, &tmp_bin).map_err(|e| e.to_string())?;
+            make_executable(&tmp_bin)?;
+            std::fs::rename(&tmp_bin, &current_bin).map_err(|e| {
+                format!(
+                    "cannot install new binary (rename {} -> {}): {e}",
+                    tmp_bin.display(),
+                    current_bin.display()
+                )
+            })?;
+            Ok(())
+        })();
+        let _ = std::fs::remove_file(&tmp_bin);
+        install_result?;
     }
 
     let current_dist = exe_dir.join("dist");

@@ -79,7 +79,21 @@ To update a prebuilt binary in place later, run from the extracted directory:
 ./crablite --update
 ```
 
-This checks `sutanto1010/crablite` GitHub Releases, downloads the matching `<TARGET>` archive, and replaces the binary plus `dist/` (old binary kept as `.bak`). Use `./crablite --update --check-only` to check only, or `-y`/`--yes` to skip confirmation. Inside Docker use `docker pull` instead.
+This checks `sutanto1010/crablite` GitHub Releases, downloads the matching `<TARGET>` archive, and replaces the binary plus `dist/` (old binary kept as `.bak`). The install writes to a temp file and renames over the old binary, so updating while the old binary is running no longer fails with `Text file busy (ETXTBSY)`. Use `./crablite --update --check-only` to check only (exit `10` = update available), or `-y`/`--yes` to skip confirmation. Inside Docker use `docker pull` instead.
+
+For system installs (e.g. `/opt/crablite`), use the shipped `update.sh` instead — it handles `sudo`, atomic binary replacement, `dist/` backup, and `systemd` restart:
+
+```bash
+sudo /opt/crablite/update.sh --dir /opt/crablite --yes
+```
+
+Each release archive contains `update.sh`, and it is also published as a standalone release asset:
+
+```bash
+curl -fsSL https://github.com/sutanto1010/crablite/releases/latest/download/update.sh | sudo bash -s -- --dir /opt/crablite --yes
+```
+
+Useful flags: `--check-only`, `--version X.Y.Z`, `--no-restart`, `--service NAME` (empty disables `systemd` handling), `--dir DIR`.
 
 ### Configuration
 

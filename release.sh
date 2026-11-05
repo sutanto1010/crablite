@@ -23,6 +23,11 @@ if [[ -z "$VERSION" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${ROOT_DIR}/update.sh" ]]; then
+  echo "Error: update.sh not found in ${ROOT_DIR}." >&2
+  exit 1
+fi
+
 REMOTE_URL=$(git remote get-url origin)
 REPO=$(printf '%s\n' "$REMOTE_URL" | sed -E -n 's#.*github\.com[:/]([^/]+/[^/]+)#\1#p')
 REPO=${REPO%.git}
@@ -86,6 +91,8 @@ build_and_package() {
   mkdir -p "${package_dir}/dist"
   cp "$binary_path" "${package_dir}/${binary_name}"
   cp -R frontend/dist/. "${package_dir}/dist/"
+  cp "${ROOT_DIR}/update.sh" "${package_dir}/update.sh"
+  chmod +x "${package_dir}/update.sh"
 
   if [[ "$target" == *-windows-* ]]; then
     (
@@ -117,10 +124,10 @@ fi
 
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   echo "Uploading archives to existing GitHub release ${TAG}..."
-  gh release upload "$TAG" "${ARCHIVES[@]}" --repo "$REPO" --clobber
+  gh release upload "$TAG" "${ARCHIVES[@]}" "${ROOT_DIR}/update.sh" --repo "$REPO" --clobber
 else
   echo "Publishing GitHub release ${TAG} to ${REPO}..."
-  gh release create "$TAG" "${ARCHIVES[@]}" \
+  gh release create "$TAG" "${ARCHIVES[@]}" "${ROOT_DIR}/update.sh" \
     --repo "$REPO" \
     --title "$TAG" \
     --generate-notes
