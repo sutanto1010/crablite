@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -152,11 +152,14 @@ async fn main() {
             auth_middleware,
         ));
 
+    let static_files = ServeDir::new("dist")
+        .not_found_service(ServeFile::new("dist/index.html"));
+
     let app = Router::new()
         .route("/api/health", get(health_check))
         .nest("/api/auth", auth_routes)
         .nest("/api", protected_routes)
-        .fallback_service(ServeDir::new("dist"))
+        .fallback_service(static_files)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
