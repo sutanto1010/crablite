@@ -173,7 +173,7 @@ const DataGrid: Component = () => {
   const [confirmKind, setConfirmKind] = createSignal<"delete" | "duplicate" | null>(null);
   const [bulkRunning, setBulkRunning] = createSignal(false);
   const [editing, setEditing] = createSignal<{ r: number; c: number } | null>(null);
-  const [view, setView] = createSignal<"table" | "json">("table");
+  const [view, setView] = createSignal<"table" | "json" | "csv">("table");
   const [draft, setDraft] = createSignal("");
   const [draftNull, setDraftNull] = createSignal(false);
   const [savingCell, setSavingCell] = createSignal(false);
@@ -377,10 +377,25 @@ const tableColInfo = (colIdx: number) => {
     }
   };
 
+  const csvText = createMemo(() => {
+    const res = result();
+    if (!res) return "";
+    return toCsv(res.columns, sortedRows());
+  });
+
   const copyJson = async () => {
     try {
       await navigator.clipboard.writeText(jsonText());
       pushToast("success", "Copied page as JSON");
+    } catch {
+      pushToast("error", "Clipboard copy failed");
+    }
+  };
+
+  const copyCsvText = async () => {
+    try {
+      await navigator.clipboard.writeText(csvText());
+      pushToast("success", "Copied page as CSV");
     } catch {
       pushToast("error", "Clipboard copy failed");
     }
@@ -568,6 +583,17 @@ const tableColInfo = (colIdx: number) => {
                 <Icon name="code" class="size-4" />
                 JSON
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view() === "csv"}
+                class={`btn btn-sm join-item ${view() === "csv" ? "btn-active" : "btn-ghost"}`}
+                title="Show results as CSV"
+                onClick={() => setView("csv")}
+              >
+                <Icon name="table_rows" class="size-4" />
+                CSV
+              </button>
             </div>
             <label class="flex items-center gap-1.5">
               <span class="sr-only">Rows per page</span>
@@ -584,23 +610,31 @@ const tableColInfo = (colIdx: number) => {
               </select>
             </label>
             <Show
-              when={view() === "json"}
+              when={view() === "table"}
               fallback={
-                <>
-                  <button type="button" class="btn btn-ghost btn-sm" onClick={copySelected} title="Copy rows as TSV (selection or page)">
+                <Show
+                  when={view() === "json"}
+                  fallback={
+                    <button type="button" class="btn btn-ghost btn-sm" onClick={copyCsvText} title="Copy current page as CSV">
+                      <Icon name="content_copy" class="size-4" />
+                      Copy CSV
+                    </button>
+                  }
+                >
+                  <button type="button" class="btn btn-ghost btn-sm" onClick={copyJson} title="Copy current page as JSON">
                     <Icon name="content_copy" class="size-4" />
-                    Copy
+                    Copy JSON
                   </button>
-                  <button type="button" class="btn btn-ghost btn-sm" onClick={exportCsv} title="Export as CSV (selection or page)">
-                    <Icon name="download" class="size-4" />
-                    CSV
-                  </button>
-                </>
+                </Show>
               }
             >
-              <button type="button" class="btn btn-ghost btn-sm" onClick={copyJson} title="Copy current page as JSON">
+              <button type="button" class="btn btn-ghost btn-sm" onClick={copySelected} title="Copy rows as TSV (selection or page)">
                 <Icon name="content_copy" class="size-4" />
-                Copy JSON
+                Copy
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" onClick={exportCsv} title="Export as CSV (selection or page)">
+                <Icon name="download" class="size-4" />
+                CSV
               </button>
             </Show>
           </div>
@@ -653,8 +687,8 @@ const tableColInfo = (colIdx: number) => {
           <Show
             when={view() === "table"}
             fallback={
-              <div class="min-h-0 flex-1 overflow-auto rounded-md border border-border" tabindex="0" aria-label="Query results JSON">
-                <pre class="whitespace-pre-wrap break-words p-3 font-mono text-xs">{jsonText()}</pre>
+              <div class="min-h-0 flex-1 overflow-auto rounded-md border border-border" tabindex="0" aria-label={view() === "json" ? "Query results JSON" : "Query results CSV"}>
+                <pre class="whitespace-pre-wrap break-words p-3 font-mono text-xs">{view() === "json" ? jsonText() : csvText()}</pre>
               </div>
             }
           >
