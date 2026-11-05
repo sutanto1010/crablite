@@ -19,18 +19,19 @@ interface CellEditorProps {
   onCancel: () => void;
 }
 
-// Single-cell editor: text / number / checkbox / NULL toggle with
-// Enter to save, Escape to cancel, and auto-focus on open.
+// Single-cell editor: value on row 1, NULL / Save / Cancel on row 2.
+// Constrained to the current cell width (no min-width) so opening the
+// editor never stretches the column. Enter to save, Escape to cancel.
 // Clicks inside the editor must not bubble to the <td> handler (would reset the draft).
 const CellEditor: Component<CellEditorProps> = (props) => (
-  <div class="flex min-w-44 items-center gap-1.5" onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()}>
+  <div class="flex w-full min-w-0 max-w-full flex-col gap-1" onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()}>
     <Show
       when={props.kind === "bool"}
       fallback={
         <input
           ref={(el) => queueMicrotask(() => el.focus())}
           type={props.kind === "int" || props.kind === "real" || props.kind === "numeric" ? "number" : "text"}
-          class="input h-7 min-w-0 flex-1 py-0 font-mono text-xs"
+          class="input h-7 w-full min-w-0 py-0 font-mono text-xs"
           value={props.value}
           disabled={props.saving}
           placeholder={props.nullChecked ? "NULL" : props.cell === null || props.cell === undefined ? "NULL" : String(props.cell)}
@@ -48,7 +49,7 @@ const CellEditor: Component<CellEditorProps> = (props) => (
         />
       }
     >
-      <label class="flex min-w-0 flex-1 items-center gap-1.5 font-mono text-xs">
+      <label class="flex min-w-0 items-center gap-1.5 font-mono text-xs">
         <input
           type="checkbox"
           class="checkbox"
@@ -59,16 +60,20 @@ const CellEditor: Component<CellEditorProps> = (props) => (
         <span class="truncate">{props.nullChecked ? "NULL" : props.value.toLowerCase() === "false" || props.value === "0" ? "false" : "true"}</span>
       </label>
     </Show>
-    <label class="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]" title="Set to NULL">
-      <input type="checkbox" class="checkbox checkbox-sm" checked={props.nullChecked} disabled={props.saving} onChange={(e) => props.onNull(e.currentTarget.checked)} />
-      NULL
-    </label>
-    <button type="button" class="btn btn-ghost btn-xs btn-icon" disabled={props.saving} title="Save (Enter)" onClick={props.onCommit} aria-label="Save edit">
-      <Icon name="check" class="size-3.5" />
-    </button>
-    <button type="button" class="btn btn-ghost btn-xs btn-icon" disabled={props.saving} title="Cancel (Esc)" onClick={props.onCancel} aria-label="Cancel edit">
-      <Icon name="close" class="size-3.5" />
-    </button>
+    <div class="flex w-full min-w-0 items-center justify-between gap-1.5">
+      <label class="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]" title="Set to NULL">
+        <input type="checkbox" class="checkbox checkbox-sm" checked={props.nullChecked} disabled={props.saving} onChange={(e) => props.onNull(e.currentTarget.checked)} />
+        NULL
+      </label>
+      <span class="flex shrink-0 items-center gap-1">
+        <button type="button" class="btn btn-ghost btn-xs btn-icon" disabled={props.saving} title="Save (Enter)" onClick={props.onCommit} aria-label="Save edit">
+          <Icon name="check" class="size-3.5" />
+        </button>
+        <button type="button" class="btn btn-ghost btn-xs btn-icon" disabled={props.saving} title="Cancel (Esc)" onClick={props.onCancel} aria-label="Cancel edit">
+          <Icon name="close" class="size-3.5" />
+        </button>
+      </span>
+    </div>
   </div>
 );
 
