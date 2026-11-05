@@ -5,7 +5,7 @@ import type { TableSchema } from "../lib/api";
 import Icon from "./Icon";
 import Dialog from "./Dialog";
 
-const PAGE_SIZES = [50, 100, 250, 500];
+const PAGE_SIZES = [5, 10, 25, 50, 100, 250, 500];
 
 interface CellEditorProps {
   value: string;
