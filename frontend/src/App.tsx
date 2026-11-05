@@ -1,5 +1,5 @@
 import { Component, onMount, onCleanup, Show } from "solid-js";
-import { Router, Route } from "@solidjs/router";
+import { Router, Route, useLocation } from "@solidjs/router";
 import NavRail from "./components/NavRail";
 import ExplorerSidebar from "./components/ExplorerSidebar";
 import StatusBar from "./components/StatusBar";
@@ -26,6 +26,7 @@ import {
 } from "./lib/store";
 
 const Shell: Component = (props: any) => {
+  const location = useLocation();
   onMount(() => {
     refreshHealth();
     const timer = window.setInterval(refreshHealth, 30000);
@@ -70,7 +71,9 @@ const Shell: Component = (props: any) => {
       <NavRail />
       <div class="flex min-w-0 flex-1 flex-col">
         <div class="flex min-h-0 flex-1">
-          <ExplorerSidebar />
+          <Show when={location.pathname === "/"}>
+            <ExplorerSidebar />
+          </Show>
           <main id="main" class="flex min-w-0 flex-1 flex-col bg-background" tabindex="-1">
             {props.children}
           </main>
