@@ -7,6 +7,71 @@ import Dialog from "./Dialog";
 
 const PAGE_SIZES = [50, 100, 250, 500];
 
+interface CellEditorProps {
+  value: string;
+  nullChecked: boolean;
+  saving: boolean;
+  kind: ColKind;
+  cell: unknown;
+  onInput: (v: string) => void;
+  onNull: (v: boolean) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+}
+
+// Single-cell editor: text / number / checkbox / NULL toggle with
+// Enter to save, Escape to cancel, and auto-focus on open.
+// Clicks inside the editor must not bubble to the <td> handler (would reset the draft).
+const CellEditor: Component<CellEditorProps> = (props) => (
+  <div class="flex min-w-44 items-center gap-1.5" onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()}>
+    <Show
+      when={props.kind === "bool"}
+      fallback={
+        <input
+          ref={(el) => queueMicrotask(() => el.focus())}
+          type={props.kind === "int" || props.kind === "real" || props.kind === "numeric" ? "number" : "text"}
+          class="input h-7 min-w-0 flex-1 py-0 font-mono text-xs"
+          value={props.value}
+          disabled={props.saving}
+          placeholder={props.nullChecked ? "NULL" : props.cell === null || props.cell === undefined ? "NULL" : String(props.cell)}
+          onInput={(e) => props.onInput(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              props.onCommit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              props.onCancel();
+            }
+            e.stopPropagation();
+          }}
+        />
+      }
+    >
+      <label class="flex min-w-0 flex-1 items-center gap-1.5 font-mono text-xs">
+        <input
+          type="checkbox"
+          class="checkbox"
+          checked={!props.nullChecked && (props.value.toLowerCase() === "true" || props.value === "1")}
+          disabled={props.saving}
+          onChange={(e) => props.onInput(e.currentTarget.checked ? "true" : "false")}
+        />
+        <span class="truncate">{props.nullChecked ? "NULL" : props.value.toLowerCase() === "false" || props.value === "0" ? "false" : "true"}</span>
+      </label>
+    </Show>
+    <label class="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]" title="Set to NULL">
+      <input type="checkbox" class="checkbox checkbox-sm" checked={props.nullChecked} disabled={props.saving} onChange={(e) => props.onNull(e.currentTarget.checked)} />
+      NULL
+    </label>
+    <button type="button" class="btn btn-ghost btn-xs btn-icon" disabled={props.saving} title="Save (Enter)" onClick={props.onCommit} aria-label="Save edit">
+      <Icon name="check" class="size-3.5" />
+    </button>
+    <button type="button" class="btn btn-ghost btn-xs btn-icon" disabled={props.saving} title="Cancel (Esc)" onClick={props.onCancel} aria-label="Cancel edit">
+      <Icon name="close" class="size-3.5" />
+    </button>
+  </div>
+);
+
 const formatCell = (value: unknown): string => {
   if (value === null || value === undefined) return "NULL";
   if (typeof value === "object") return JSON.stringify(value);
@@ -44,6 +109,22 @@ const detectSingleTable = (sql: string): string | null => {
   return table;
 };
 
+// SQLite type affinity bucket for the inline editor.
+type ColKind = "int" | "real" | "bool" | "blob" | "numeric" | "text";
+
+const columnKind = (declaredType: string | null | undefined): ColKind => {
+  const u = (declaredType || "").trim().toUpperCase();
+  if (u.includes("BLOB")) return "blob";
+  if (u.includes("BOOL")) return "bool";
+  if (u.includes("INT")) return "int";
+  if (u.includes("REAL") || u.includes("FLOA") || u.includes("DOUB")) return "real";
+  if (u.includes("NUMERIC") || u.includes("DECIMAL")) return "numeric";
+  return "text";
+};
+
+const INT_RE = /^-?\d+$/;
+const REAL_RE = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
 // Encode a JSON cell value as a SQLite literal for generated WHERE clauses.
 const encodeLiteral = (v: unknown): string => {
   if (v === null || v === undefined) return "NULL";
@@ -56,13 +137,45 @@ const encodeLiteral = (v: unknown): string => {
   return `'${String(v).replace(/'/g, "''")}'`;
 };
 
+// Parse the editor draft into a SQLite literal for the SET clause.
+// Returns { lit } on success or { err } with a message for the toast.
+const parseCellLiteral = (kind: ColKind, text: string): { lit: string } | { err: string } => {
+  const t = text.trim();
+  if (kind === "int") {
+    if (t === "") return { err: "Empty value: check NULL instead of leaving an integer blank" };
+    if (!INT_RE.test(t)) return { err: `Invalid integer: "${t}"` };
+    return { lit: t };
+  }
+  if (kind === "real") {
+    if (t === "") return { err: "Empty value: check NULL instead of leaving a number blank" };
+    if (!REAL_RE.test(t)) return { err: `Invalid number: "${t}"` };
+    return { lit: t };
+  }
+  if (kind === "bool") {
+    const l = t.toLowerCase();
+    if (l === "true" || l === "1") return { lit: "1" };
+    if (l === "false" || l === "0") return { lit: "0" };
+    return { err: `Invalid boolean: "${t}" (use true/false)` };
+  }
+  if (kind === "numeric") {
+    if (t === "") return { err: "Empty value: check NULL instead of leaving a numeric blank" };
+    if (INT_RE.test(t) || REAL_RE.test(t)) return { lit: t };
+    return { lit: `'${t.replace(/'/g, "''")}'` };
+  }
+  return { lit: `'${t.replace(/'/g, "''")}'` };
+};
+
 const DataGrid: Component = () => {
-  const [selected, setSelected] = createSignal<Set<number>>(new Set());
+  const [selected, setSelected] = createSignal<Set<number>>(new Set<number>());
   const [sort, setSort] = createSignal<{ col: number; dir: 1 | -1 } | null>(null);
   const [bulkSchema, setBulkSchema] = createSignal<TableSchema | null>(null);
   const [bulkSchemaTable, setBulkSchemaTable] = createSignal<string | null>(null);
   const [confirmKind, setConfirmKind] = createSignal<"delete" | "duplicate" | null>(null);
   const [bulkRunning, setBulkRunning] = createSignal(false);
+  const [editing, setEditing] = createSignal<{ r: number; c: number } | null>(null);
+  const [draft, setDraft] = createSignal("");
+  const [draftNull, setDraftNull] = createSignal(false);
+  const [savingCell, setSavingCell] = createSignal(false);
   const result = () => activeTab().result;
 
   const sortedRows = createMemo(() => {
@@ -84,21 +197,27 @@ const DataGrid: Component = () => {
   createEffect(() => {
     result();
     activeTabId();
-    setSelected(new Set());
+    setSelected(new Set<number>());
+    setEditing(null);
   });
   createEffect(() => {
     sort();
-    setSelected(new Set());
+    setSelected(new Set<number>());
+    setEditing(null);
   });
 
   const detectedTable = createMemo(() => detectSingleTable(activeTab().sql));
 
-  // Load the source table schema lazily once rows are selected.
+          // Load the source table schema lazily once a single-table result is shown,
+  // so both bulk actions and inline editing can build PK predicates.
+  // Fetch eagerly: NULL cells need the same schema to decide editability.
   createEffect(() => {
     const table = detectedTable();
-    if (!table || selected().size === 0) return;
-    if (bulkSchemaTable() === table && bulkSchema()) return;
+    const res = result();
+    if (!table || !res || res.error) return;
+    if (bulkSchemaTable() === table) return;
     setBulkSchemaTable(table);
+    setBulkSchema(null);
     fetchTableSchema(table, apiKey(), () => setIsAuthModalOpen(true))
       .then((schema) => {
         if (bulkSchemaTable() === table) setBulkSchema(schema);
@@ -132,6 +251,35 @@ const DataGrid: Component = () => {
   });
 
   const rowEligible = () => detectedTable() !== null && pkIdx() !== null;
+
+  // Column of the result mapped to the real table schema (case-insensitive).
+// Result columns may be qualified ("table.col", "t.col") or aliased, so
+// compare the unqualified lowercased name against the schema.
+const tableColInfo = (colIdx: number) => {
+  const schema = bulkSchema();
+  const res = result();
+  if (!schema || !res || bulkSchemaTable() !== detectedTable()) return null;
+  const name = res.columns[colIdx];
+  if (name === undefined) return null;
+  const shortName = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : name;
+  const lower = shortName.toLowerCase();
+  return schema.columns.find((c) => c.name.toLowerCase() === lower) ?? null;
+};
+
+  // Only non-PK columns editable; PK edits would break row identity.
+  // Unknown column type (missing declared_type) is treated as text, not a blocker.
+  const editableReason = (colIdx: number): string | null => {
+    const table = detectedTable();
+    if (!table) return "Inline edit needs a plain SELECT from one table (no joins, unions, or aggregates)";
+    if (!result() || result()!.error) return "Run a query first";
+    if (bulkSchemaTable() !== table || !bulkSchema()) return null; // schema still loading: allow open, gate save
+    if (pkIdx() === null) return "Include the table primary key columns in the SELECT to enable inline editing";
+    const info = tableColInfo(colIdx);
+    if (!info) return "Column not in table schema (expression or alias is read-only)";
+    if (info.primary_key_position > 0) return "Primary key columns are read-only";
+    if (columnKind(info.declared_type) === "blob") return "BLOB columns are read-only in the grid";
+    return "";
+  };
 
   const ineligibilityReason = () => {
     if (!result() || result()!.error) return "Run a query first";
@@ -243,20 +391,13 @@ const DataGrid: Component = () => {
       if (data.error) throw new Error(data.error);
       pushToast("success", `${verb} ${data.affectedRows ?? count} row(s)`);
       setConfirmKind(null);
-      setSelected(new Set());
+      setSelected(new Set<number>());
       await runQuery(undefined, page());
     } catch (e: any) {
       pushToast("error", e?.message || `Bulk ${verb.toLowerCase()} failed`);
     } finally {
       setBulkRunning(false);
     }
-  };
-
-  const toggleSort = (col: number) => {
-    const s = sort();
-    if (!s || s.col !== col) setSort({ col, dir: 1 });
-    else if (s.dir === 1) setSort({ col, dir: -1 });
-    else setSort(null);
   };
 
   const toggleRow = (index: number) => {
@@ -266,6 +407,91 @@ const DataGrid: Component = () => {
       else next.add(index);
       return next;
     });
+  };
+
+  const toggleSort = (col: number) => {
+    const s = sort();
+    if (!s || s.col !== col) setSort({ col, dir: 1 });
+    else if (s.dir === 1) setSort({ col, dir: -1 });
+    else setSort(null);
+  };
+
+  const startEdit = (rowIdx: number, colIdx: number) => {
+    if (savingCell()) return;
+    const reason = editableReason(colIdx);
+    if (reason) {
+      pushToast("error", reason);
+      return;
+    }
+    const cell = sortedRows()[rowIdx]?.[colIdx];
+    setEditing({ r: rowIdx, c: colIdx });
+    setDraft(cell === null || cell === undefined ? "" : String(cell));
+    setDraftNull(cell === null || cell === undefined);
+  };
+
+  const updateSql = (row: unknown[], colIdx: number, info: { name: string; declared_type?: string | null }, setLit: string): string | null => {
+    const table = detectedTable();
+    const idx = pkIdx();
+    const pks = pkCols();
+    if (!table || !idx || !pks) return null;
+    const setCol = quoteIdentifier(info.name);
+    return `UPDATE ${quoteIdentifier(table)} SET ${setCol} = ${setLit} WHERE ${pkCondition(row, pks, idx)}`;
+  };
+
+  const cancelEdit = () => {
+    if (savingCell()) return;
+    setEditing(null);
+  };
+
+  const saveEdit = async () => {
+    const pos = editing();
+    if (!pos || savingCell()) return;
+    const res = result();
+    const row = sortedRows()[pos.r];
+    // Re-resolve the column now: schema may have arrived after the editor opened.
+    let info = tableColInfo(pos.c);
+    if ((!info || bulkSchemaTable() !== detectedTable()) && detectedTable()) {
+      try {
+        const schema = await fetchTableSchema(detectedTable()!, apiKey(), () => setIsAuthModalOpen(true));
+        if (bulkSchemaTable() === detectedTable()) setBulkSchema(schema);
+        info = tableColInfo(pos.c) ?? schema.columns.find((c) => c.name.toLowerCase() === (res?.columns[pos.c] ?? "").toLowerCase().split(".").pop()) ?? null;
+      } catch {
+        info = null;
+      }
+    }
+    if (!info || !res || !row) {
+      pushToast("error", !info ? "Column not in table schema (expression or alias is read-only)" : "Cannot save: result changed");
+      setEditing(null);
+      return;
+    }
+    const kind = columnKind(info.declared_type);
+    const parsed = draftNull() ? { lit: "NULL" } : parseCellLiteral(kind, draft());
+    if ("err" in parsed) {
+      pushToast("error", parsed.err);
+      return;
+    }
+    const setLit = parsed.lit;
+    const sql = updateSql(row, pos.c, info, setLit);
+    if (!sql) {
+      pushToast("error", "Cannot build UPDATE: missing primary key values");
+      return;
+    }
+    setSavingCell(true);
+    try {
+      const data = await execRawSql(sql, apiKey(), undefined, () => setIsAuthModalOpen(true));
+      if (data.error) throw new Error(data.error);
+      if ((data.affectedRows ?? 0) === 0) {
+        pushToast("error", "No rows updated (row may have changed)");
+      } else {
+        pushToast("success", `Updated ${info.name}`);
+      }
+      setEditing(null);
+      await runQuery(undefined, page());
+    } catch (e: any) {
+      pushToast("error", e?.message || "Update failed");
+    } finally {
+      setSavingCell(false);
+    }
   };
 
   const toggleAll = () => {
@@ -358,7 +584,7 @@ const DataGrid: Component = () => {
                 <Icon name="download" class="size-4" />
                 CSV
               </button>
-              <button type="button" class="btn btn-ghost btn-sm" onClick={() => setSelected(new Set())} title="Clear selection">
+              <button type="button" class="btn btn-ghost btn-sm" onClick={() => setSelected(new Set<number>())} title="Clear selection">
                 <Icon name="close" class="size-4" />
                 Clear
               </button>
@@ -410,9 +636,36 @@ const DataGrid: Component = () => {
                       </td>
                       <td class="font-mono text-muted-foreground">{(page() - 1) * (result()!.limit ?? result()!.rows.length) + i() + 1}</td>
                       <For each={row}>
-                        {(cell) => (
-                          <td title={formatCell(cell)}>
-                            <span class={cell === null ? "font-mono italic text-muted-foreground" : "font-mono"}>{formatCell(cell)}</span>
+                        {(cell, ci) => (
+                          <td
+                            class={rowEligible() ? "cursor-text hover:bg-accent/50" : undefined}
+                            title={formatCell(cell)}
+                            onClick={() => startEdit(i(), ci())}
+                            onDblClick={() => startEdit(i(), ci())}
+                          >
+                            <Show
+                              when={editing() !== null && editing()!.r === i() && editing()!.c === ci()}
+                              fallback={
+                                <span class={`flex w-full items-center gap-1 text-left ${cell === null ? "font-mono italic text-muted-foreground" : "font-mono"}`}>
+                                  {formatCell(cell) || " "}
+                                </span>
+                              }
+                            >
+                              <CellEditor
+                                value={draft()}
+                                nullChecked={draftNull()}
+                                saving={savingCell()}
+                                kind={columnKind(tableColInfo(ci())?.declared_type)}
+                                cell={cell}
+                                onInput={(v) => {
+                                  setDraft(v);
+                                  if (v !== "") setDraftNull(false);
+                                }}
+                                onNull={(v) => setDraftNull(v)}
+                                onCommit={() => void saveEdit()}
+                                onCancel={cancelEdit}
+                              />
+                            </Show>
                           </td>
                         )}
                       </For>
