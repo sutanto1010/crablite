@@ -19,9 +19,10 @@ mod state;
 
 use handlers::{
     connect_db, correct_sql, create_saved_query, delete_db_file, delete_saved_query, execute_query,
-    get_auth_config, get_database_schema, get_sqlite_internals, get_table_schema, health_check,
-    init_metadata_db, list_dbs, list_saved_queries, list_tables, login, logout, rename_db_file,
-    replace_db_file, update_saved_query, verify_session_cookie,
+    get_auth_config, get_database_schema, get_open_tabs, get_sqlite_internals, get_table_schema,
+    health_check, init_metadata_db, init_open_tabs_db, list_dbs, list_saved_queries, list_tables,
+    login, logout, put_open_tabs, rename_db_file, replace_db_file, update_saved_query,
+    verify_session_cookie,
 };
 use state::AppState;
 
@@ -112,6 +113,9 @@ async fn main() {
     init_metadata_db(&metadata_pool)
         .await
         .expect("Failed to initialize metadata tables");
+    init_open_tabs_db(&metadata_pool)
+        .await
+        .expect("Failed to initialize open tabs table");
 
     let state = AppState {
         db: Arc::new(RwLock::new(None)),
@@ -147,6 +151,7 @@ async fn main() {
             "/saved-queries/{id}",
             axum::routing::put(update_saved_query).delete(delete_saved_query),
         )
+        .route("/open-tabs", get(get_open_tabs).put(put_open_tabs))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

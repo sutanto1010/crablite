@@ -22,6 +22,7 @@ import {
   refreshHealth,
   runQuery,
   setIsSaveModalOpen,
+  syncTabsFromServer,
 } from "./lib/store";
 
 const Shell: Component = (props: any) => {
@@ -34,6 +35,7 @@ const Shell: Component = (props: any) => {
       fetchTables();
       fetchSavedQueries();
       fetchDbFiles();
+      void syncTabsFromServer();
     }
 
     const onKey = (e: KeyboardEvent) => {

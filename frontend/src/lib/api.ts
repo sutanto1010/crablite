@@ -335,3 +335,37 @@ export const deleteSavedQuery = async (id: number, apiKey: string, onUnauthorize
     await handleResponse(res, onUnauthorized);
     if (!res.ok) throw new Error("Failed to delete saved query");
 };
+
+export interface OpenTabItem {
+    id: string;
+    name: string;
+    sql: string;
+}
+
+export interface OpenTabsState {
+    db_path: string;
+    tabs: OpenTabItem[];
+    active_tab_id: string;
+    updated_at: string;
+}
+
+export const fetchOpenTabs = async (dbPath: string, apiKey: string, onUnauthorized?: () => void): Promise<OpenTabsState | null> => {
+    const params = new URLSearchParams({ db: dbPath });
+    const res = await fetch(`./api/open-tabs?${params.toString()}`, { headers: getHeaders(apiKey), credentials: "same-origin" });
+    if (res.status === 404) return null;
+    await handleResponse(res, onUnauthorized);
+    if (!res.ok) throw new Error("Failed to fetch open tabs");
+    return (await res.json()) as OpenTabsState;
+};
+
+export const saveOpenTabs = async (dbPath: string, tabs: OpenTabItem[], activeTabId: string, apiKey: string, onUnauthorized?: () => void): Promise<OpenTabsState> => {
+    const res = await fetch("./api/open-tabs", {
+        method: "PUT",
+        headers: getHeaders(apiKey),
+        credentials: "same-origin",
+        body: JSON.stringify({ db_path: dbPath, tabs, active_tab_id: activeTabId }),
+    });
+    await handleResponse(res, onUnauthorized);
+    if (!res.ok) throw new Error("Failed to save open tabs");
+    return (await res.json()) as OpenTabsState;
+};
