@@ -173,6 +173,7 @@ const DataGrid: Component = () => {
   const [confirmKind, setConfirmKind] = createSignal<"delete" | "duplicate" | null>(null);
   const [bulkRunning, setBulkRunning] = createSignal(false);
   const [editing, setEditing] = createSignal<{ r: number; c: number } | null>(null);
+  const [view, setView] = createSignal<"table" | "json">("table");
   const [draft, setDraft] = createSignal("");
   const [draftNull, setDraftNull] = createSignal(false);
   const [savingCell, setSavingCell] = createSignal(false);
@@ -191,6 +192,14 @@ const DataGrid: Component = () => {
       if (bv === null || bv === undefined) return -1;
       return (av < bv ? -1 : 1) * s.dir;
     });
+  });
+
+  const jsonText = createMemo(() => {
+    const res = result();
+    if (!res) return "";
+    const rows = sortedRows();
+    const objects = rows.map((row) => Object.fromEntries(res.columns.map((col, i) => [col, row[i] ?? null])));
+    return JSON.stringify(objects, null, 2);
   });
 
   // Selection is page-local: clear it whenever the result, tab, or sort changes.
@@ -368,6 +377,15 @@ const tableColInfo = (colIdx: number) => {
     }
   };
 
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonText());
+      pushToast("success", "Copied page as JSON");
+    } catch {
+      pushToast("error", "Clipboard copy failed");
+    }
+  };
+
   const exportCsv = () => {
     const res = result();
     if (!res) return;
@@ -527,6 +545,30 @@ const tableColInfo = (colIdx: number) => {
             <span>{result()!.affectedRows} affected</span>
           </Show>
           <div class="ml-auto flex items-center gap-1.5">
+            <div class="join" role="tablist" aria-label="Result view">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view() === "table"}
+                class={`btn btn-sm join-item ${view() === "table" ? "btn-active" : "btn-ghost"}`}
+                title="Show results as a table"
+                onClick={() => setView("table")}
+              >
+                <Icon name="table" class="size-4" />
+                Table
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view() === "json"}
+                class={`btn btn-sm join-item ${view() === "json" ? "btn-active" : "btn-ghost"}`}
+                title="Show results as JSON"
+                onClick={() => setView("json")}
+              >
+                <Icon name="code" class="size-4" />
+                JSON
+              </button>
+            </div>
             <label class="flex items-center gap-1.5">
               <span class="sr-only">Rows per page</span>
               <select
@@ -541,14 +583,26 @@ const tableColInfo = (colIdx: number) => {
                 <For each={PAGE_SIZES}>{(size) => <option value={size}>{size}/page</option>}</For>
               </select>
             </label>
-            <button type="button" class="btn btn-ghost btn-sm" onClick={copySelected} title="Copy rows as TSV (selection or page)">
-              <Icon name="content_copy" class="size-4" />
-              Copy
-            </button>
-            <button type="button" class="btn btn-ghost btn-sm" onClick={exportCsv} title="Export as CSV (selection or page)">
-              <Icon name="download" class="size-4" />
-              CSV
-            </button>
+            <Show
+              when={view() === "json"}
+              fallback={
+                <>
+                  <button type="button" class="btn btn-ghost btn-sm" onClick={copySelected} title="Copy rows as TSV (selection or page)">
+                    <Icon name="content_copy" class="size-4" />
+                    Copy
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm" onClick={exportCsv} title="Export as CSV (selection or page)">
+                    <Icon name="download" class="size-4" />
+                    CSV
+                  </button>
+                </>
+              }
+            >
+              <button type="button" class="btn btn-ghost btn-sm" onClick={copyJson} title="Copy current page as JSON">
+                <Icon name="content_copy" class="size-4" />
+                Copy JSON
+              </button>
+            </Show>
           </div>
         </div>
 
@@ -596,6 +650,14 @@ const tableColInfo = (colIdx: number) => {
         </Show>
 
         <Show when={result()!.columns.length > 0} fallback={<p class="rounded-md bg-muted p-4 text-sm text-muted-foreground">Query executed. No columns returned.</p>}>
+          <Show
+            when={view() === "table"}
+            fallback={
+              <div class="min-h-0 flex-1 overflow-auto rounded-md border border-border" tabindex="0" aria-label="Query results JSON">
+                <pre class="whitespace-pre-wrap break-words p-3 font-mono text-xs">{jsonText()}</pre>
+              </div>
+            }
+          >
           <div class="min-h-0 flex-1 overflow-auto rounded-md border border-border" tabindex="0" aria-label="Query results table">
             <table class="data-table">
               <thead>
@@ -675,6 +737,7 @@ const tableColInfo = (colIdx: number) => {
               </tbody>
             </table>
           </div>
+          </Show>
           <div class="flex items-center justify-between gap-2 text-xs">
             <button type="button" class="btn btn-outline btn-sm" disabled={page() <= 1 || isQuerying()} onClick={() => runQuery(undefined, page() - 1)}>
               <Icon name="chevron_left" class="size-4" /> Prev
